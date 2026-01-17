@@ -3,7 +3,6 @@
   "outputDirectory": "dashboard/.next",
   "devCommand": "cd dashboard && npm run dev",
   "installCommand": "cd dashboard && npm install",
-  "framework": "nextjs",
-  "rootDirectory": "dashboard"
+  "framework": "nextjs"
 }
 
