@@ -121,6 +121,33 @@ export default function Home() {
     return statusMap[status] || status
   }
 
+  const isProcessing = (status: string) => {
+    return ['generating_script', 'creating_voiceover', 'rendering_video', 'uploading'].includes(status)
+  }
+
+  const getEstimatedTime = (job: Job): string | null => {
+    if (!isProcessing(job.status) || !job.updated_at) return null
+    
+    const now = new Date().getTime()
+    const updated = new Date(job.updated_at).getTime()
+    const elapsedMinutes = (now - updated) / 1000 / 60
+    
+    // Estimated times for each step (in minutes)
+    const estimates: Record<string, number> = {
+      generating_script: 2,
+      creating_voiceover: 3,
+      rendering_video: 5,
+      uploading: 2
+    }
+    
+    const estimatedTotal = estimates[job.status] || 3
+    const remaining = Math.max(0, estimatedTotal - elapsedMinutes)
+    
+    if (remaining <= 0) return 'Almost done...'
+    if (remaining < 1) return `${Math.round(remaining * 60)}s remaining`
+    return `${Math.round(remaining)}m remaining`
+  }
+
   // Check dependencies for each action
   const checkDependencies = (job: Job, action: string): { canRun: boolean, missing: string[] } => {
     const missing: string[] = []
