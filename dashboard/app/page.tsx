@@ -34,6 +34,11 @@ export default function Home() {
   const [uploadDescription, setUploadDescription] = useState('')
   const [uploadTags, setUploadTags] = useState('')
   const [uploadPrivacy, setUploadPrivacy] = useState('private')
+  
+  // Database view state
+  const [showDatabaseView, setShowDatabaseView] = useState(false)
+  const [allJobs, setAllJobs] = useState<Job[]>([])
+  const [loadingDatabase, setLoadingDatabase] = useState(false)
 
   const loadJobs = async () => {
     try {
@@ -186,6 +191,31 @@ export default function Home() {
     return statusMap[status] || status
   }
 
+  const loadAllDatabaseRecords = async () => {
+    setLoadingDatabase(true)
+    try {
+      const { data, error } = await supabase
+        .from('video_jobs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100)
+
+      if (error) throw error
+      setAllJobs(data || [])
+    } catch (error: any) {
+      console.error('Error loading database records:', error)
+      setMessage({ type: 'error', text: `Failed to load database: ${error.message}` })
+    } finally {
+      setLoadingDatabase(false)
+    }
+  }
+
+  useEffect(() => {
+    if (showDatabaseView) {
+      loadAllDatabaseRecords()
+    }
+  }, [showDatabaseView])
+
   return (
     <div className="container">
       <div className="header">
@@ -302,9 +332,17 @@ export default function Home() {
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h2 style={{ margin: 0 }}>Video Jobs</h2>
-          <button onClick={loadJobs} className="btn btn-secondary">
-            Refresh
-          </button>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button 
+              onClick={() => setShowDatabaseView(!showDatabaseView)} 
+              className="btn btn-secondary"
+            >
+              {showDatabaseView ? 'Hide' : 'Show'} Database View
+            </button>
+            <button onClick={loadJobs} className="btn btn-secondary">
+              Refresh
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -362,6 +400,134 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {showDatabaseView && (
+        <div className="card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h2 style={{ margin: 0 }}>Complete Database View</h2>
+            <button onClick={loadAllDatabaseRecords} className="btn btn-secondary" disabled={loadingDatabase}>
+              {loadingDatabase ? 'Loading...' : 'Refresh All'}
+            </button>
+          </div>
+
+          {loadingDatabase ? (
+            <div className="loading">Loading database records...</div>
+          ) : allJobs.length === 0 ? (
+            <div className="loading">No records found in database</div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#f5f5f5', borderBottom: '2px solid #ddd' }}>
+                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>ID</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Topic</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Title</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Status</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Created</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>YouTube ID</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allJobs.map((job, index) => (
+                    <tr 
+                      key={job.id} 
+                      style={{ 
+                        borderBottom: '1px solid #eee',
+                        backgroundColor: index % 2 === 0 ? '#fff' : '#fafafa'
+                      }}
+                    >
+                      <td style={{ padding: '12px', fontFamily: 'monospace', fontSize: '12px' }}>
+                        {job.id.substring(0, 8)}...
+                      </td>
+                      <td style={{ padding: '12px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {job.topic}
+                      </td>
+                      <td style={{ padding: '12px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {job.title || '-'}
+                      </td>
+                      <td style={{ padding: '12px' }}>
+                        <span className={`job-status ${job.status}`}>
+                          {getStatusDisplay(job.status)}
+                        </span>
+                      </td>
+                      <td style={{ padding: '12px', fontSize: '12px' }}>
+                        {formatDate(job.created_at)}
+                      </td>
+                      <td style={{ padding: '12px', fontFamily: 'monospace', fontSize: '12px' }}>
+                        {job.youtube_video_id || '-'}
+                      </td>
+                      <td style={{ padding: '12px' }}>
+                        <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                          {job.youtube_url && (
+                            <a 
+                              href={job.youtube_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              style={{ fontSize: '12px', padding: '4px 8px', background: '#f0f0f0', borderRadius: '4px', textDecoration: 'none', color: '#333' }}
+                            >
+                              YouTube
+                            </a>
+                          )}
+                          {job.video_url && (
+                            <a 
+                              href={job.video_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              style={{ fontSize: '12px', padding: '4px 8px', background: '#f0f0f0', borderRadius: '4px', textDecoration: 'none', color: '#333' }}
+                            >
+                              Video
+                            </a>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              
+              <div style={{ marginTop: '20px', padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '6px' }}>
+                <h3 style={{ marginTop: 0, marginBottom: '10px', fontSize: '16px' }}>Database Statistics</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '15px' }}>
+                  <div>
+                    <strong>Total Jobs:</strong> {allJobs.length}
+                  </div>
+                  <div>
+                    <strong>Pending:</strong> {allJobs.filter(j => j.status === 'pending').length}
+                  </div>
+                  <div>
+                    <strong>Completed:</strong> {allJobs.filter(j => j.status === 'completed').length}
+                  </div>
+                  <div>
+                    <strong>Failed:</strong> {allJobs.filter(j => j.status === 'failed').length}
+                  </div>
+                  <div>
+                    <strong>With YouTube:</strong> {allJobs.filter(j => j.youtube_url).length}
+                  </div>
+                </div>
+              </div>
+
+              <details style={{ marginTop: '20px' }}>
+                <summary style={{ cursor: 'pointer', padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '4px', fontWeight: '500' }}>
+                  View Raw JSON Data
+                </summary>
+                <pre style={{ 
+                  marginTop: '10px', 
+                  padding: '15px', 
+                  backgroundColor: '#f5f5f5', 
+                  borderRadius: '6px', 
+                  overflow: 'auto', 
+                  maxHeight: '400px',
+                  fontSize: '12px',
+                  fontFamily: 'monospace'
+                }}>
+                  {JSON.stringify(allJobs, null, 2)}
+                </pre>
+              </details>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
