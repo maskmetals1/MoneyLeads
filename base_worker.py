@@ -71,8 +71,8 @@ class BaseWorker:
                 job_action == action_needed or
                 (action_needed == "generate_script" and (job_action == "run_all" or original_action == "run_all")) or
                 (action_needed == "generate_voiceover" and (job_action == "run_all" or original_action == "run_all")) or
-                (action_needed == "create_video" and (job_action == "run_all" or original_action == "run_all")) or
-                (action_needed == "post_to_youtube" and (job_action == "run_all" or original_action == "run_all"))
+                (action_needed == "create_video" and (job_action == "run_all" or original_action == "run_all"))
+                # Note: post_to_youtube is NOT included in run_all - YouTube posting must be done manually
             )
             
             if should_process:
