@@ -88,14 +88,16 @@ class VideoWorker(BaseWorker):
             # Update action_needed based on original action
             current_job = self.supabase.get_job(job_id)
             current_metadata = current_job.get("metadata", {}) if current_job else {}
-            original_action = current_metadata.get("action_needed", "")
+            original_action = current_metadata.get("original_action") or current_metadata.get("action_needed", "")
             
             # If it was "run_all", set next action to "post_to_youtube"
             # Otherwise, clear action_needed
             if original_action == "run_all":
                 current_metadata["action_needed"] = "post_to_youtube"
+                current_metadata["original_action"] = "run_all"  # Preserve for YouTube worker
             else:
                 current_metadata.pop("action_needed", None)
+                current_metadata.pop("original_action", None)
             
             current_metadata.pop("missing_dependencies", None)
             self.supabase.update_job_status(job_id, "pending", metadata=current_metadata)

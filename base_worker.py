@@ -62,11 +62,14 @@ class BaseWorker:
             
             # Check if this job needs our action
             # Also handle "run_all" - each worker processes it in sequence
+            # Also check for original_action in metadata (preserved from run_all)
+            original_action = metadata.get("original_action")
             should_process = (
                 job_action == action_needed or
-                (action_needed == "generate_script" and job_action == "run_all") or
-                (action_needed == "generate_voiceover" and job_action == "run_all") or
-                (action_needed == "create_video" and job_action == "run_all")
+                (action_needed == "generate_script" and (job_action == "run_all" or original_action == "run_all")) or
+                (action_needed == "generate_voiceover" and (job_action == "run_all" or original_action == "run_all")) or
+                (action_needed == "create_video" and (job_action == "run_all" or original_action == "run_all")) or
+                (action_needed == "post_to_youtube" and (job_action == "run_all" or original_action == "run_all"))
             )
             
             if should_process:
