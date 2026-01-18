@@ -68,13 +68,15 @@ SCRIPT REQUIREMENTS:
 - Length: {length_guidance.get(length, length_guidance['medium'])}
 - Style: Model after the "$1,200/week side hustle" style - fast-paced, engaging, "feels illegal but isn't" vibe
 - Hook: Start with a compelling hook in the first 10-15 seconds that grabs attention (e.g., "Most people think making $X means... That's not true.")
-- Structure:
+- Structure (write naturally, NO section labels):
   1. Hook (0:00-0:30) - Attention-grabbing opening
   2. The Model Overview (0:30-1:00) - Quick explanation of what this business is
   3. Step-by-Step Breakdown (1:00-6:00) - 3-5 super easy steps explaining exactly how the viewer can get started
   4. Lead Generation Section - Explain how to use ScrapeScorpion.com to get clients/leads
   5. Pricing/Revenue Potential - Show realistic earning potential
   6. Soft CTA - Mention ScrapeScorpion.com and encourage action
+
+CRITICAL: DO NOT include section labels like [INTRO], [STEP-BY-STEP BREAKDOWN], [OUTRO], [PRICING/REVENUE POTENTIAL], [LEAD GENERATION SECTION], [THE MODEL OVERVIEW] in your output. Write the script as if you're speaking directly to the camera - just the words that will be read aloud, nothing else.
 
 CONTENT REQUIREMENTS:
 - Explain the business model clearly and why it's profitable
@@ -101,9 +103,11 @@ IMPORTANT:
 - Explain how lead generation is essential for this business model
 - Make the steps super actionable - viewer should be able to start immediately
 - Keep it engaging and fast-paced
-- Format as plain text, no markdown, no timestamps (just the script text)
+- Format as plain text, no markdown, no timestamps, NO SECTION LABELS
+- Write ONLY the words that will be spoken - no brackets, no labels, no formatting markers
+- The output should be ready to read directly as a voiceover script
 
-Create the script now:"""
+Create the script now (output ONLY the spoken words, no section labels):"""
         
         if self.provider == "openai":
             # Try models in order: gpt-3.5-turbo (most reliable), then gpt-4o
@@ -123,7 +127,10 @@ Create the script now:"""
                         max_tokens=3000  # Increased for longer, more detailed scripts
                     )
                     print(f"  ✅ Using model: {model}")
-                    return response.choices[0].message.content.strip()
+                    script = response.choices[0].message.content.strip()
+                    # Remove any section labels that might have been included
+                    script = self._clean_script_labels(script)
+                    return script
                 except Exception as e:
                     last_error = e
                     error_msg = str(e)
@@ -142,7 +149,30 @@ Create the script now:"""
                     {"role": "user", "content": prompt}
                 ]
             )
-            return response.content[0].text.strip()
+            script = response.content[0].text.strip()
+            # Remove any section labels that might have been included
+            script = self._clean_script_labels(script)
+            return script
+    
+    def _clean_script_labels(self, script: str) -> str:
+        """
+        Remove section labels like [INTRO], [STEP-BY-STEP BREAKDOWN], etc. from script
+        """
+        import re
+        # Remove lines that are just section labels in brackets
+        lines = script.split('\n')
+        cleaned_lines = []
+        
+        for line in lines:
+            # Skip lines that are just section labels (e.g., [INTRO], [OUTRO], etc.)
+            if re.match(r'^\s*\[.*\]\s*$', line):
+                continue
+            # Remove section labels that appear at the start of a line followed by text
+            line = re.sub(r'^\s*\[.*?\]\s*\n?', '', line)
+            if line.strip():  # Only add non-empty lines
+                cleaned_lines.append(line)
+        
+        return '\n'.join(cleaned_lines).strip()
     
     def generate_title_and_description(self, script: str) -> Tuple[str, str, List[str]]:
         """
