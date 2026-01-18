@@ -621,9 +621,27 @@ export default function Home() {
                       {truncateText(job.title, 30)}
                     </td>
                     <td>
-                      <span className={`job-status ${job.status}`}>
+                      <span 
+                        className={`job-status ${job.status}`}
+                        style={isProcessing(job.status) ? {
+                          backgroundColor: '#fff3cd',
+                          color: '#856404',
+                          border: '1px solid #ffc107'
+                        } : {}}
+                      >
                         {getStatusDisplay(job.status)}
                       </span>
+                      {isProcessing(job.status) && getEstimatedTime(job) && (
+                        <span style={{ 
+                          marginLeft: '8px', 
+                          fontSize: '10px', 
+                          color: '#856404',
+                          fontStyle: 'italic',
+                          fontWeight: '500'
+                        }}>
+                          ({getEstimatedTime(job)})
+                        </span>
+                      )}
                       {job.status === 'pending' && job.metadata?.action_needed && (
                         <span style={{ 
                           marginLeft: '8px', 

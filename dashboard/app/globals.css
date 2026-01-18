@@ -192,23 +192,27 @@ body {
 }
 
 .job-status.generating_script {
-  background: #d1ecf1;
-  color: #0c5460;
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffc107;
 }
 
 .job-status.creating_voiceover {
-  background: #e2e3f5;
-  color: #383874;
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffc107;
 }
 
 .job-status.rendering_video {
-  background: #d4edda;
-  color: #155724;
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffc107;
 }
 
 .job-status.uploading {
-  background: #f8d7da;
-  color: #721c24;
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffc107;
 }
 
 .job-status.completed {

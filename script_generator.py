@@ -204,22 +204,18 @@ TITLE REQUIREMENTS:
   * "If I Had 30 Days to Make $10K, I'd Do This"
 
 DESCRIPTION REQUIREMENTS:
-- Keep it SHORT and concise (2-3 short paragraphs, 150-250 words max)
-- First paragraph: Brief hook summarizing the video value (1-2 sentences)
-- Second paragraph: Quick overview of what they'll learn (2-3 sentences)
-- Third paragraph: MUST include link to ScrapeScorpion.com and subscribe CTA
-- Always include these exact links:
-  * ScrapeScorpion.com: https://scrapescorpion.com
-  * Subscribe: https://www.youtube.com/@MoneyLeads
-- Keep it simple, direct, and action-oriented
-- No fluff or long explanations
+- Keep it SUPER SHORT - use the exact template format below
+- Follow this template EXACTLY:
 
-REQUIRED DESCRIPTION FORMAT:
-Paragraph 1: [Brief hook - 1-2 sentences]
+[HOOK] [One sentence hook about the video topic - what they'll learn]
 
-Paragraph 2: [What they'll learn - 2-3 sentences]
+[Always include these:]
+Lead Generate Tool: ScrapeScorpion.com
+Subscribe: Youtube.com/@MoneyLeads
 
-Paragraph 3: [MUST include: "Get leads with ScrapeScorpion.com: https://scrapescorpion.com" AND "Subscribe for more: https://www.youtube.com/@MoneyLeads"]
+- Then add tags below (tags will be added separately, don't include them in description)
+- Keep it minimal - just the hook and the two required links
+- No paragraphs, no extra text, just the template format
 
 TAGS REQUIREMENTS:
 - Generate 10-15 relevant tags/keywords
@@ -304,13 +300,27 @@ Generate now:"""
         
         description = "\n\n".join(description_lines).strip()
         
-        # Ensure description includes required links (add if missing)
+        # Format description according to template if not already formatted
         description_lower = description.lower()
-        if "scrapescorpion.com" not in description_lower and "https://scrapescorpion.com" not in description_lower:
-            description += "\n\nGet leads with ScrapeScorpion.com: https://scrapescorpion.com"
+        has_hook = "[hook]" in description_lower
+        has_scrapescorpion = "scrapescorpion.com" in description_lower
+        has_subscribe = "youtube.com/@moneyleads" in description_lower or "@moneyleads" in description_lower
         
-        if "youtube.com/@moneyleads" not in description_lower and "@moneyleads" not in description_lower and "https://www.youtube.com/@MoneyLeads" not in description_lower:
-            description += "\n\nSubscribe for more: https://www.youtube.com/@MoneyLeads"
+        # If description doesn't follow template, reformat it
+        if not has_hook or not has_scrapescorpion or not has_subscribe:
+            # Extract hook from description or use a default
+            hook_line = ""
+            for line in description_lines:
+                if line.strip() and not line.strip().startswith("["):
+                    hook_line = line.strip()
+                    break
+            
+            # Rebuild description in template format
+            description = f"""[HOOK] {hook_line if hook_line else "Looking to dive into the world of profitable business models and side hustles? In this video, we'll uncover the secrets of starting your own business."}
+
+[Always include these:]
+Lead Generate Tool: ScrapeScorpion.com
+Subscribe: Youtube.com/@MoneyLeads"""
         
         # Clean up tags (remove duplicates, limit to 15)
         tags = list(dict.fromkeys(tags))[:15]  # Preserve order, remove duplicates
