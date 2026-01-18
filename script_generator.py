@@ -106,8 +106,9 @@ IMPORTANT:
 Create the script now:"""
         
         if self.provider == "openai":
-            # Try gpt-4o first, fallback to gpt-3.5-turbo if not available
-            models_to_try = ["gpt-4o", "gpt-3.5-turbo", "gpt-4o-mini"]
+            # Try models in order: gpt-3.5-turbo (most reliable), then gpt-4o
+            # Removed gpt-4o-mini as it's not available for this project
+            models_to_try = ["gpt-3.5-turbo", "gpt-4o"]
             last_error = None
             
             for model in models_to_try:
@@ -125,11 +126,13 @@ Create the script now:"""
                     return response.choices[0].message.content.strip()
                 except Exception as e:
                     last_error = e
-                    print(f"  ⚠️  Model {model} failed: {e}")
+                    error_msg = str(e)
+                    print(f"  ⚠️  Model {model} failed: {error_msg[:100]}")
+                    # Continue to next model
                     continue
             
-            # If all models failed, raise the last error
-            raise Exception(f"All models failed. Last error: {last_error}")
+            # If all models failed, raise the last error with more context
+            raise Exception(f"All OpenAI models failed. Last error: {last_error}")
         
         else:  # Claude
             response = self.client.messages.create(
@@ -198,9 +201,11 @@ tag1, tag2, tag3, etc.
 Generate now:"""
         
         if self.provider == "openai":
-            # Try gpt-4o first, fallback to gpt-3.5-turbo if not available
-            models_to_try = ["gpt-4o", "gpt-3.5-turbo", "gpt-4o-mini"]
+            # Try models in order: gpt-3.5-turbo (most reliable), then gpt-4o
+            # Removed gpt-4o-mini as it's not available for this project
+            models_to_try = ["gpt-3.5-turbo", "gpt-4o"]
             last_error = None
+            content = None
             
             for model in models_to_try:
                 try:
@@ -218,11 +223,13 @@ Generate now:"""
                     break
                 except Exception as e:
                     last_error = e
-                    print(f"  ⚠️  Model {model} failed: {e}")
+                    error_msg = str(e)
+                    print(f"  ⚠️  Model {model} failed: {error_msg[:100]}")
+                    # Continue to next model
                     continue
             
             if not content:
-                raise Exception(f"All models failed. Last error: {last_error}")
+                raise Exception(f"All OpenAI models failed. Last error: {last_error}")
         else:  # Claude
             response = self.client.messages.create(
                 model="claude-3-5-sonnet-20241022",
