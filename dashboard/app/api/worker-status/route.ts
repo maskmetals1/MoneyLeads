@@ -38,12 +38,13 @@ export async function GET(request: NextRequest) {
         })
       } else if (['generating_script', 'creating_voiceover', 'rendering_video', 'uploading'].includes(status)) {
         // Map status to worker type
-        const workerType = {
+        const workerTypeMap: Record<string, string> = {
           'generating_script': 'Script Worker',
           'creating_voiceover': 'Voiceover Worker',
           'rendering_video': 'Video Worker',
           'uploading': 'YouTube Worker'
-        }[status] || 'Unknown Worker'
+        }
+        const workerType = workerTypeMap[status] || 'Unknown Worker'
         
         processingJobs.push({
           id: job.id.substring(0, 8),
