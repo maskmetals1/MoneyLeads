@@ -42,6 +42,7 @@ export default function Home() {
   const [processing, setProcessing] = useState<Set<string>>(new Set())
   const [workerStatus, setWorkerStatus] = useState<WorkerStatus | null>(null)
   const [showStatusPanel, setShowStatusPanel] = useState(false)
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
 
   const loadJobs = async () => {
     try {
@@ -53,6 +54,7 @@ export default function Home() {
 
       if (error) throw error
       setJobs(data || [])
+      setLastRefresh(new Date())
     } catch (error: any) {
       console.error('Error loading jobs:', error)
       setMessage({ type: 'error', text: `Failed to load jobs: ${error.message}` })
@@ -67,6 +69,7 @@ export default function Home() {
       if (response.ok) {
         const data = await response.json()
         setWorkerStatus(data)
+        setLastRefresh(new Date())
       }
     } catch (error) {
       console.error('Error loading worker status:', error)
@@ -89,12 +92,15 @@ export default function Home() {
       )
       .subscribe()
 
-    // Auto-refresh worker status every 10 seconds
-    const statusInterval = setInterval(loadWorkerStatus, 10000)
+    // Auto-refresh both jobs and worker status every 10 seconds
+    const refreshInterval = setInterval(() => {
+      loadJobs()
+      loadWorkerStatus()
+    }, 10000)
 
     return () => {
       supabase.removeChannel(channel)
-      clearInterval(statusInterval)
+      clearInterval(refreshInterval)
     }
   }, [])
 
@@ -395,7 +401,10 @@ export default function Home() {
           <Link href="/manual-upload" className="btn btn-secondary">
             Manual Upload Page
           </Link>
-          <button onClick={loadJobs} className="btn btn-secondary">
+          <button onClick={() => {
+            loadJobs()
+            loadWorkerStatus()
+          }} className="btn btn-secondary">
             Refresh
           </button>
           <button 
@@ -502,7 +511,7 @@ export default function Home() {
           )}
           
           <div style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
-            Last updated: {new Date(workerStatus.timestamp).toLocaleTimeString()} | 
+            Last updated: {lastRefresh.toLocaleTimeString()} | 
             Total jobs: {workerStatus.totalJobs} | 
             Auto-refreshes every 10 seconds
           </div>
