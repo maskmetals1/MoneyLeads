@@ -346,39 +346,44 @@ Generate now:"""
                 if tag_line:
                     tags.extend([t.strip() for t in tag_line.split(",") if t.strip()])
         
-        description = "\n\n".join(description_lines).strip()
-        
-        # Always reformat description to ensure exact template format
-        description_lower = description.lower()
-        has_correct_format = (
-            "[hook, keep it very short" in description_lower and 
-            "[always include these in this exact format" in description_lower and
-            "lead generate tool: scrapescorpion.com" in description_lower and
-            "subscribe: youtube.com/@moneyleads" in description_lower
-        )
-        
-        # Always reformat to ensure exact template (even if close, enforce exact format)
-        if not has_correct_format:
-            # Extract hook text from description (first 1-2 sentences that aren't labels)
-            hook_text = ""
-            for line in description_lines:
-                line_stripped = line.strip()
-                # Skip label lines and empty lines
-                if line_stripped and not line_stripped.startswith("[") and "scrapescorpion" not in line_stripped.lower() and "subscribe" not in line_stripped.lower() and "youtube" not in line_stripped.lower():
-                    if hook_text:
+        # ALWAYS reformat description to exact template - don't trust AI output
+        # Extract hook text from description (first 1-2 sentences that aren't labels)
+        hook_text = ""
+        for line in description_lines:
+            line_stripped = line.strip()
+            # Skip label lines, empty lines, and link lines
+            if (line_stripped and 
+                not line_stripped.startswith("[") and 
+                "scrapescorpion" not in line_stripped.lower() and 
+                "subscribe" not in line_stripped.lower() and 
+                "youtube" not in line_stripped.lower() and
+                "lead generate" not in line_stripped.lower()):
+                # Extract first meaningful text as hook
+                if not hook_text:
+                    hook_text = line_stripped
+                else:
+                    # Add second sentence if we don't have 2 sentences yet
+                    if hook_text.count('.') < 2:
                         hook_text += " " + line_stripped
                     else:
-                        hook_text = line_stripped
-                    # Limit to approximately two sentences
-                    if hook_text.count('.') >= 2:
                         break
-            
-            # If no hook found, use default
-            if not hook_text:
-                hook_text = "Looking to dive into the world of profitable business models and side hustles? In this video, we'll uncover the secrets of starting your own business."
-            
-            # Rebuild description in exact template format
-            description = f"""[HOOK, keep it very short. like two sentences] {hook_text}
+                # Stop after 2 sentences
+                if hook_text.count('.') >= 2:
+                    break
+        
+        # If no hook found, use default
+        if not hook_text or len(hook_text) < 20:
+            hook_text = "Looking to dive into the world of profitable business models and side hustles? In this video, we'll uncover the secrets of starting your own business."
+        
+        # Ensure hook is exactly 2 sentences (truncate if longer)
+        sentences = hook_text.split('.')
+        if len(sentences) > 2:
+            hook_text = '. '.join(sentences[:2])
+            if not hook_text.endswith('.'):
+                hook_text += '.'
+        
+        # ALWAYS rebuild description in exact template format (never trust AI output)
+        description = f"""[HOOK, keep it very short. like two sentences] {hook_text}
 
 [Always include these in this exact format. nothing more or less:]
 
