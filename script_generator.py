@@ -26,12 +26,13 @@ class ScriptGenerator:
         else:
             raise ValueError(f"Unknown AI provider: {AI_PROVIDER}. Use 'openai' or 'claude'")
     
-    def generate_script(self, topic: str, length: str = "medium") -> str:
+    def generate_script(self, topic: str, title: Optional[str] = None, length: str = "medium") -> str:
         """
         Generate a video script from a topic
         
         Args:
             topic: The topic/keyword for the video (e.g., "web agency", "AI automation agency")
+            title: Optional title to provide context for script generation
             length: "short" (~2-3 min), "medium" (~4-5 min), "long" (~8-10 min)
         
         Returns:
@@ -43,9 +44,13 @@ class ScriptGenerator:
             "long": "8-10 minutes (approximately 1200-1500 words)"
         }
         
+        title_context = ""
+        if title:
+            title_context = f"\nVIDEO TITLE: {title}\n- Use this title as context to ensure the script aligns with the title's promise and value proposition\n- The script should deliver on what the title promises\n"
+        
         prompt = f"""You are creating a YouTube video script for a channel about profitable business models, side hustles, and money-making opportunities. The channel focuses on businesses that require lead generation.
 
-TOPIC: {topic}
+TOPIC: {topic}{title_context}
 
 CHANNEL CONTEXT:
 - This is a YouTube channel about money, business models, profitable businesses, and side hustles
@@ -174,9 +179,12 @@ Create the script now (output ONLY the spoken words, no section labels):"""
         
         return '\n'.join(cleaned_lines).strip()
     
-    def generate_title_and_description(self, script: str) -> Tuple[str, str, List[str]]:
+    def generate_title_and_description(self, topic: str) -> Tuple[str, str, List[str]]:
         """
-        Generate title, description, and tags from a script
+        Generate title, description, and tags from a topic (no script needed)
+        
+        Args:
+            topic: The topic/keyword for the video
         
         Returns:
             (title, description, tags)
@@ -189,8 +197,7 @@ CHANNEL FOCUS:
 - Lead generation strategies
 - ScrapeScorpion.com (lead generation tool)
 
-SCRIPT CONTEXT:
-{script[:2000]}  # Limit script length for context
+TOPIC: {topic}
 
 TITLE REQUIREMENTS:
 - Create a compelling, click-worthy title (under 60 characters)

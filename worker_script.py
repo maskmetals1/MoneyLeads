@@ -42,33 +42,31 @@ class ScriptWorker(BaseWorker):
         topic = job["topic"]
         
         try:
-            print(f"\n[1/4] Generating script...")
+            # Step 1: Generate title and description first (separate API call)
+            print(f"\n[1/3] Generating title and description...")
             self.supabase.update_job_status(job_id, "generating_script")
             
-            # Generate script
-            script = self.script_generator.generate_script(topic)
-            
-            # Save script immediately
-            self.supabase.update_job_status(job_id, status=None, script=script)
-            print(f"  ✅ Script generated and saved ({len(script)} chars)")
-            
-            # Generate title, description, tags
-            print(f"\n[2/4] Generating title...")
-            title, description, tags = self.script_generator.generate_title_and_description(script)
+            title, description, tags = self.script_generator.generate_title_and_description(topic)
             
             # Save title immediately
             self.supabase.update_job_status(job_id, status=None, title=title)
             print(f"  ✅ Title generated and saved: {title}")
             
             # Save description immediately
-            print(f"\n[3/4] Generating description...")
             self.supabase.update_job_status(job_id, status=None, description=description)
             print(f"  ✅ Description generated and saved")
             
             # Save tags immediately
-            print(f"\n[4/4] Generating tags...")
             self.supabase.update_job_status(job_id, status=None, tags=tags)
             print(f"  ✅ Tags generated and saved: {len(tags)} tags")
+            
+            # Step 2: Generate script using title as context (separate API call)
+            print(f"\n[2/3] Generating script (using title as context)...")
+            script = self.script_generator.generate_script(topic, title=title)
+            
+            # Save script immediately
+            self.supabase.update_job_status(job_id, status=None, script=script)
+            print(f"  ✅ Script generated and saved ({len(script)} chars)")
             
             # Update action_needed based on original action
             current_job = self.supabase.get_job(job_id)
@@ -85,7 +83,7 @@ class ScriptWorker(BaseWorker):
             current_metadata.pop("missing_dependencies", None)
             self.supabase.update_job_status(job_id, "pending", metadata=current_metadata)
             
-            print(f"\n✅ Script generation complete - ready for voiceover")
+            print(f"\n[3/3] ✅ Script generation complete - ready for voiceover")
             return True
             
         except Exception as e:
