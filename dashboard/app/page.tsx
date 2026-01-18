@@ -228,6 +228,14 @@ export default function Home() {
             >
               Run All (Script → Video)
             </button>
+            <button 
+              onClick={() => handleAction('post_to_youtube')} 
+              className="btn btn-primary"
+              disabled={selectedRows.size === 0 || processing.size > 0}
+              style={{ backgroundColor: '#ff0000' }}
+            >
+              Post to YouTube
+            </button>
           </div>
         </div>
 

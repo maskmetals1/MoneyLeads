@@ -136,6 +136,66 @@ class Worker:
                 
                 return True
             
+            # Check if this is a post-to-youtube action (video already exists)
+            if action_needed == "post_to_youtube":
+                # Post existing video to YouTube
+                print(f"\n[1/1] Posting existing video to YouTube...")
+                self.supabase.update_job_status(job_id, "uploading")
+                
+                video_url = job.get("video_url")
+                if not video_url:
+                    raise Exception("Video URL not found - cannot post to YouTube")
+                
+                # Download video from Supabase Storage
+                import requests
+                temp_dir = Path(f"/tmp/youtube_automation_{job_id}")
+                temp_dir.mkdir(parents=True, exist_ok=True)
+                video_path = temp_dir / "video.mp4"
+                
+                print(f"  📥 Downloading video from storage...")
+                response = requests.get(video_url, stream=True)
+                response.raise_for_status()
+                with open(video_path, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                print(f"  ✅ Video downloaded")
+                
+                # Get metadata from job
+                title = job.get("title", job.get("topic", "Untitled Video"))
+                description = job.get("description", "")
+                tags = job.get("tags", [])
+                privacy_status = metadata.get("privacy_status", "private")
+                
+                # Upload to YouTube
+                youtube_result = self.youtube_uploader.upload_video(
+                    video_path=video_path,
+                    title=title,
+                    description=description,
+                    tags=tags if isinstance(tags, list) else [],
+                    privacy_status=privacy_status
+                )
+                
+                youtube_video_id = youtube_result["video_id"]
+                youtube_url = youtube_result["video_url"]
+                
+                # Save YouTube video info
+                self.supabase.save_youtube_video(job_id, youtube_video_id, title, description)
+                self.supabase.update_job_with_youtube(job_id, youtube_video_id, youtube_url)
+                
+                print(f"  ✅ Posted to YouTube: {youtube_url}")
+                
+                # Cleanup
+                try:
+                    import shutil
+                    shutil.rmtree(temp_dir)
+                except:
+                    pass
+                
+                print(f"\n✅ Job completed successfully!")
+                print(f"   YouTube: {youtube_url}")
+                
+                return True
+            
             # Check what action is needed
             script = job.get("script")
             voiceover_url = job.get("voiceover_url")
