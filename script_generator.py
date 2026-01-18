@@ -167,48 +167,94 @@ Create the script now (output ONLY the spoken words, no section labels):"""
     
     def _clean_script_labels(self, script: str) -> str:
         """
-        Aggressively remove ALL section labels and formatting from script
+        Aggressively remove ALL section labels, intro/outro text, and formatting from script
         """
         import re
         lines = script.split('\n')
         cleaned_lines = []
+        skip_until_content = True  # Skip intro text
         
         for line in lines:
-            original_line = line
-            # Remove any lines that are ONLY section labels in brackets
-            if re.match(r'^\s*\[.*\]\s*$', line):
+            line_stripped = line.strip()
+            
+            # Skip empty lines initially (we'll add them back for paragraph breaks)
+            if not line_stripped:
                 continue
             
-            # Remove section labels at the start of lines (more aggressive)
-            line = re.sub(r'^\s*\[.*?\]\s*', '', line)
+            # Skip intro phrases
+            intro_patterns = [
+                r'^alright,?\s+let\'?s\s+dive',
+                r'^let\'?s\s+dive',
+                r'^here\'?s\s+the\s+script',
+                r'^script\s+for\s+our',
+                r'^for\s+our\s+youtube',
+            ]
+            if any(re.search(pattern, line_stripped, re.IGNORECASE) for pattern in intro_patterns):
+                skip_until_content = True
+                continue
             
-            # Remove any remaining brackets with text inside (catch any missed labels)
+            # Skip separator lines
+            if re.match(r'^---+$', line_stripped) or re.match(r'^===+$', line_stripped):
+                continue
+            
+            # Skip lines that are ONLY section labels in brackets (with or without timestamps)
+            if re.match(r'^\s*\[.*\]\s*$', line_stripped):
+                continue
+            
+            # Remove section labels at the start of lines (with timestamps like [Hook - 0:00-0:30])
+            line = re.sub(r'^\s*\[.*?\]\s*-?\s*', '', line)
+            
+            # Remove any remaining brackets with text inside
             line = re.sub(r'\[.*?\]', '', line)
             
-            # Remove common label patterns
+            # Remove common label patterns (case insensitive)
             label_patterns = [
                 r'\[INTRO\]', r'\[HOOK\]', r'\[OUTRO\]',
-                r'\[STEP-BY-STEP BREAKDOWN\]', r'\[STEP BY STEP\]',
-                r'\[PRICING/REVENUE POTENTIAL\]', r'\[PRICING\]',
+                r'\[STEP-BY-STEP BREAKDOWN\]', r'\[STEP BY STEP\]', r'\[STEP-BY-STEP\]',
+                r'\[PRICING/REVENUE POTENTIAL\]', r'\[PRICING\]', r'\[REVENUE\]',
                 r'\[LEAD GENERATION SECTION\]', r'\[LEAD GENERATION\]',
                 r'\[THE MODEL OVERVIEW\]', r'\[MODEL OVERVIEW\]',
-                r'\[SOFT CTA\]', r'\[CTA\]'
+                r'\[SOFT CTA\]', r'\[CTA\]', r'\[CALL TO ACTION\]'
             ]
             for pattern in label_patterns:
                 line = re.sub(pattern, '', line, flags=re.IGNORECASE)
             
-            # Only add non-empty lines
-            if line.strip():
+            # Skip outro phrases
+            outro_patterns = [
+                r'^and\s+there\s+you\s+have\s+it',
+                r'^don\'?t\s+forget\s+to\s+like',
+                r'^see\s+you\s+in\s+the\s+next',
+                r'^time\s+to\s+turn\s+those\s+dreams',
+                r'^thanks\s+for\s+(watching|tuning)',
+            ]
+            if any(re.search(pattern, line_stripped, re.IGNORECASE) for pattern in outro_patterns):
+                # Stop processing - we've hit the outro
+                break
+            
+            # Only add non-empty lines that contain actual content
+            if line.strip() and len(line.strip()) > 10:  # Minimum content length
                 cleaned_lines.append(line.strip())
+                skip_until_content = False
         
         result = '\n'.join(cleaned_lines).strip()
         
-        # Final check - if result still contains brackets, remove them
+        # Final aggressive cleanup - remove any remaining brackets
         if '[' in result or ']' in result:
             result = re.sub(r'\[.*?\]', '', result)
             result = '\n'.join([l.strip() for l in result.split('\n') if l.strip()])
         
-        return result
+        # Remove any remaining intro/outro phrases that might have slipped through
+        result_lines = result.split('\n')
+        final_lines = []
+        for line in result_lines:
+            line_stripped = line.strip()
+            # Skip if it's an intro/outro phrase
+            if any(re.search(pattern, line_stripped, re.IGNORECASE) for pattern in intro_patterns + outro_patterns):
+                continue
+            if line_stripped and len(line_stripped) > 10:
+                final_lines.append(line_stripped)
+        
+        return '\n'.join(final_lines).strip()
     
     def generate_title_and_description(self, topic: str) -> Tuple[str, str, List[str]]:
         """
