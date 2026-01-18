@@ -184,14 +184,35 @@ def compile_background_videos(folder_path: Path, target_duration: float, output_
             print(f"  ⚠️  Video shorter than needed: using full video ({original_duration:.2f}s < {target_duration:.2f}s)")
         
         # Extract the random segment
-        bg_source = bg_source.subclip(random_start, random_end)
-        fg_source = fg_source.subclip(random_start, random_end)
+        bg_segment = bg_source.subclip(random_start, random_end)
+        fg_segment = fg_source.subclip(random_start, random_end)
+        segment_duration = bg_segment.duration
+        
+        # Loop the segments to match target duration if needed
+        if segment_duration < target_duration:
+            # Calculate how many loops we need
+            loops_needed = int(target_duration / segment_duration) + 1
+            print(f"  🔄 Looping video segment {loops_needed} times to match audio duration ({target_duration:.2f}s)")
+            
+            # Loop the background segment
+            bg_clips = [bg_segment] * loops_needed
+            bg_looped = mp.concatenate_videoclips(bg_clips, method="compose")
+            bg_looped = bg_looped.subclip(0, target_duration)  # Trim to exact duration
+            
+            # Loop the foreground segment
+            fg_clips = [fg_segment] * loops_needed
+            fg_looped = mp.concatenate_videoclips(fg_clips, method="compose")
+            fg_looped = fg_looped.subclip(0, target_duration)  # Trim to exact duration
+        else:
+            # Segment is long enough, just trim to exact duration
+            bg_looped = bg_segment.subclip(0, target_duration)
+            fg_looped = fg_segment.subclip(0, target_duration)
         
         # Create scaled background layer (no blur)
-        scale_factor = output_resolution[0] / bg_source.w
+        scale_factor = output_resolution[0] / bg_looped.w
         scale_factor = max(scale_factor, 1.15)
         
-        bg_clip = bg_source.resize(scale_factor)
+        bg_clip = bg_looped.resize(scale_factor)
         # Crop to exact resolution if needed
         if bg_clip.w > output_resolution[0] or bg_clip.h > output_resolution[1]:
             x_center = bg_clip.w / 2
@@ -204,16 +225,26 @@ def compile_background_videos(folder_path: Path, target_duration: float, output_
             )
         
         # Create foreground layer (original clip, centered)
-        fg_clip = fg_source.resize(height=output_resolution[1])
+        fg_clip = fg_looped.resize(height=output_resolution[1])
         fg_clip = fg_clip.set_position(('center', 'center'))
+        
+        # Ensure both clips have the exact same duration as target
+        bg_clip = bg_clip.set_duration(target_duration)
+        fg_clip = fg_clip.set_duration(target_duration)
         
         # Composite: background + foreground
         final_clip = mp.CompositeVideoClip(
             [bg_clip, fg_clip],
-            size=output_resolution
+            size=output_resolution,
+            duration=target_duration  # Explicitly set duration
         )
         
-        print(f"  ✅ Background video ready: {final_clip.duration:.2f}s (optimized - no concatenation!)")
+        # Final safety check: ensure duration matches exactly
+        if abs(final_clip.duration - target_duration) > 0.1:
+            print(f"  ⚠️  Duration mismatch: {final_clip.duration:.2f}s vs {target_duration:.2f}s, fixing...")
+            final_clip = final_clip.set_duration(target_duration)
+        
+        print(f"  ✅ Background video ready: {final_clip.duration:.2f}s (matches audio: {target_duration:.2f}s)")
         return final_clip
         
     except Exception as e:
