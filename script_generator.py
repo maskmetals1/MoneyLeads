@@ -224,7 +224,7 @@ Generate now:"""
                             {"role": "user", "content": prompt}
                         ],
                         temperature=0.7,
-                        max_tokens=1500  # Increased for more detailed descriptions
+                        max_tokens=800  # Reduced for shorter descriptions (150-250 words)
                     )
                     print(f"  ✅ Using model: {model}")
                     content = response.choices[0].message.content.strip()
@@ -241,7 +241,7 @@ Generate now:"""
         else:  # Claude
             response = self.client.messages.create(
                 model="claude-3-5-sonnet-20241022",
-                max_tokens=1500,  # Increased for more detailed descriptions
+                max_tokens=800,  # Reduced for shorter descriptions (150-250 words)
                 messages=[
                     {"role": "user", "content": prompt}
                 ]
@@ -273,6 +273,14 @@ Generate now:"""
                     tags.extend([t.strip() for t in tag_line.split(",") if t.strip()])
         
         description = "\n\n".join(description_lines).strip()
+        
+        # Ensure description includes required links (add if missing)
+        description_lower = description.lower()
+        if "scrapescorpion.com" not in description_lower and "https://scrapescorpion.com" not in description_lower:
+            description += "\n\nGet leads with ScrapeScorpion.com: https://scrapescorpion.com"
+        
+        if "youtube.com/@moneyleads" not in description_lower and "@moneyleads" not in description_lower and "https://www.youtube.com/@MoneyLeads" not in description_lower:
+            description += "\n\nSubscribe for more: https://www.youtube.com/@MoneyLeads"
         
         # Clean up tags (remove duplicates, limit to 15)
         tags = list(dict.fromkeys(tags))[:15]  # Preserve order, remove duplicates
