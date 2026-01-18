@@ -6,6 +6,7 @@ Shared functionality for all specialized workers
 
 import time
 import sys
+import threading
 from typing import List, Dict, Any, Optional, Tuple
 from config import WORKER_POLL_INTERVAL, WORKER_MAX_CONCURRENT_JOBS
 from supabase_client import SupabaseClient
@@ -18,6 +19,8 @@ class BaseWorker:
         """Initialize base worker"""
         self.worker_name = worker_name
         self.supabase = SupabaseClient()
+        self.active_jobs = set()  # Track jobs currently being processed
+        self.active_jobs_lock = threading.Lock()  # Lock for thread-safe access
         print(f"🚀 Initializing {worker_name}...")
     
     def check_dependencies(self, job: Dict[str, Any]) -> Tuple[bool, List[str]]:
@@ -90,36 +93,76 @@ class BaseWorker:
         
         return ready_jobs[:WORKER_MAX_CONCURRENT_JOBS]
     
+    def _process_job_thread(self, job: Dict[str, Any], action_needed: str):
+        """Process a single job in a separate thread"""
+        job_id = job["id"]
+        try:
+            print(f"\n{'='*60}")
+            print(f"📹 {self.worker_name} processing Job: {job_id[:8]}...")
+            print(f"{'='*60}")
+            self.process_job(job)
+        except Exception as e:
+            print(f"\n❌ {self.worker_name} error processing job {job_id[:8]}: {e}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            # Remove from active jobs when done
+            with self.active_jobs_lock:
+                self.active_jobs.discard(job_id)
+    
     def run(self, action_needed: str):
         """
-        Main worker loop - polls for jobs and processes them
+        Main worker loop - polls for jobs and processes them in parallel
         
         Args:
             action_needed: The action this worker handles
         """
+        max_concurrent = max(1, WORKER_MAX_CONCURRENT_JOBS)  # At least 1
         print(f"\n🔄 {self.worker_name} started - polling every {WORKER_POLL_INTERVAL} seconds")
         print(f"   Looking for jobs with action: {action_needed}")
+        print(f"   Max concurrent jobs: {max_concurrent}")
         print(f"   Press Ctrl+C to stop\n")
         
         try:
             while True:
-                # Get jobs ready for this worker
-                jobs = self.get_pending_jobs(action_needed)
+                # Check how many jobs we can start
+                with self.active_jobs_lock:
+                    available_slots = max_concurrent - len(self.active_jobs)
                 
-                if jobs:
-                    for job in jobs:
-                        print(f"\n{'='*60}")
-                        print(f"📹 {self.worker_name} processing Job: {job['id']}")
-                        print(f"{'='*60}")
-                        self.process_job(job)
-                else:
-                    print(f"⏳ No ready jobs for {self.worker_name}... (checking again in {WORKER_POLL_INTERVAL}s)")
+                if available_slots > 0:
+                    # Get jobs ready for this worker (up to available slots)
+                    jobs = self.get_pending_jobs(action_needed)
+                    
+                    # Filter out jobs already being processed
+                    with self.active_jobs_lock:
+                        new_jobs = [job for job in jobs if job["id"] not in self.active_jobs]
+                    
+                    # Start processing new jobs (up to available slots)
+                    for job in new_jobs[:available_slots]:
+                        job_id = job["id"]
+                        with self.active_jobs_lock:
+                            self.active_jobs.add(job_id)
+                        
+                        # Start job in a separate thread
+                        thread = threading.Thread(
+                            target=self._process_job_thread,
+                            args=(job, action_needed),
+                            daemon=True
+                        )
+                        thread.start()
+                        print(f"🚀 Started processing job {job_id[:8]}... (active: {len(self.active_jobs)}/{max_concurrent})")
                 
                 # Wait before next poll
                 time.sleep(WORKER_POLL_INTERVAL)
                 
         except KeyboardInterrupt:
             print(f"\n\n🛑 {self.worker_name} stopped by user")
+            # Wait for active jobs to complete
+            with self.active_jobs_lock:
+                if self.active_jobs:
+                    print(f"⏳ Waiting for {len(self.active_jobs)} active job(s) to complete...")
+                    while self.active_jobs:
+                        time.sleep(1)
         except Exception as e:
             print(f"\n❌ {self.worker_name} error: {e}")
             import traceback

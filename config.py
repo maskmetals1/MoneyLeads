@@ -39,7 +39,8 @@ EDGE_TTS_VOICE = None if _edge_tts_voice == "" or _edge_tts_voice is None else _
 
 # Worker Configuration
 WORKER_POLL_INTERVAL = int(os.getenv("WORKER_POLL_INTERVAL", "10"))  # seconds
-WORKER_MAX_CONCURRENT_JOBS = int(os.getenv("WORKER_MAX_CONCURRENT_JOBS", "1"))
+# Allow multiple jobs to be processed in parallel (set to 1 for sequential, higher for parallel)
+WORKER_MAX_CONCURRENT_JOBS = int(os.getenv("WORKER_MAX_CONCURRENT_JOBS", "3"))
 
 # File Paths
 LOCAL_TEMP_DIR = Path(os.getenv("LOCAL_TEMP_DIR", "/tmp/youtube_automation"))
