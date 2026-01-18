@@ -29,6 +29,8 @@ export async function POST(request: NextRequest) {
       updates.metadata = { action_needed: 'run_all' }
     } else if (action === 'post_to_youtube') {
       updates.metadata = { action_needed: 'post_to_youtube' }
+    } else if (action === 'post_to_youtube') {
+      updates.metadata = { action_needed: 'post_to_youtube' }
     }
 
     const { error } = await supabase

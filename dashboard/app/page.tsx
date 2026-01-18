@@ -341,6 +341,16 @@ export default function Home() {
                             Video
                           </button>
                         )}
+                        {job.video_url && !job.youtube_url && (
+                          <button 
+                            onClick={() => handleAction('post_to_youtube', job.id)}
+                            className="btn btn-secondary"
+                            style={{ fontSize: '11px', padding: '4px 8px', backgroundColor: '#ff0000', color: 'white' }}
+                            disabled={processing.has(job.id)}
+                          >
+                            Post
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
