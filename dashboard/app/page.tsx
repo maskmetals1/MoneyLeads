@@ -43,6 +43,9 @@ export default function Home() {
   const [workerStatus, setWorkerStatus] = useState<WorkerStatus | null>(null)
   const [showStatusPanel, setShowStatusPanel] = useState(false)
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
+  const [editingJob, setEditingJob] = useState<string | null>(null)
+  const [editValues, setEditValues] = useState<{ [jobId: string]: { title?: string; description?: string; script?: string; tags?: string } }>({})
+  const [saving, setSaving] = useState<Set<string>>(new Set())
 
   const loadJobs = async () => {
     try {
@@ -789,34 +792,96 @@ export default function Home() {
                             <h4>Topic/Idea</h4>
                             <p>{job.topic}</p>
                           </div>
-                          {job.title && (
-                            <div>
-                              <h4>Title</h4>
-                              <p>{job.title}</p>
-                            </div>
-                          )}
-                          {job.description && (
-                            <div>
-                              <h4>Description</h4>
-                              <p style={{ whiteSpace: 'pre-wrap' }}>{job.description}</p>
-                            </div>
-                          )}
+                          <div>
+                            <h4 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              Title
+                              {editingJob === job.id ? (
+                                <div style={{ display: 'flex', gap: '5px' }}>
+                                  <button
+                                    onClick={() => saveJobEdits(job.id)}
+                                    className="btn btn-primary"
+                                    style={{ fontSize: '11px', padding: '4px 8px' }}
+                                    disabled={saving.has(job.id)}
+                                  >
+                                    {saving.has(job.id) ? 'Saving...' : 'Save'}
+                                  </button>
+                                  <button
+                                    onClick={() => cancelEditing(job.id)}
+                                    className="btn btn-secondary"
+                                    style={{ fontSize: '11px', padding: '4px 8px' }}
+                                    disabled={saving.has(job.id)}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => startEditing(job.id)}
+                                  className="btn btn-secondary"
+                                  style={{ fontSize: '11px', padding: '4px 8px' }}
+                                >
+                                  Edit
+                                </button>
+                              )}
+                            </h4>
+                            {editingJob === job.id ? (
+                              <input
+                                type="text"
+                                value={editValues[job.id]?.title || ''}
+                                onChange={(e) => handleEditChange(job.id, 'title', e.target.value)}
+                                style={{ width: '100%', padding: '8px', fontSize: '14px', border: '1px solid #ddd', borderRadius: '4px' }}
+                                placeholder="Enter title"
+                              />
+                            ) : (
+                              <p>{job.title || 'No title'}</p>
+                            )}
+                          </div>
+                          <div>
+                            <h4>Description</h4>
+                            {editingJob === job.id ? (
+                              <textarea
+                                value={editValues[job.id]?.description || ''}
+                                onChange={(e) => handleEditChange(job.id, 'description', e.target.value)}
+                                style={{ width: '100%', minHeight: '150px', padding: '8px', fontSize: '13px', border: '1px solid #ddd', borderRadius: '4px', fontFamily: 'inherit' }}
+                                placeholder="Enter description"
+                              />
+                            ) : (
+                              <p style={{ whiteSpace: 'pre-wrap' }}>{job.description || 'No description'}</p>
+                            )}
+                          </div>
                           {job.script && (
                             <div style={{ gridColumn: '1 / -1' }}>
                               <h4>Script</h4>
-                              <textarea 
-                                readOnly 
-                                value={job.script} 
-                                style={{ width: '100%', minHeight: '200px', padding: '10px', fontFamily: 'monospace', fontSize: '12px' }}
+                              {editingJob === job.id ? (
+                                <textarea
+                                  value={editValues[job.id]?.script || ''}
+                                  onChange={(e) => handleEditChange(job.id, 'script', e.target.value)}
+                                  style={{ width: '100%', minHeight: '300px', padding: '10px', fontFamily: 'monospace', fontSize: '12px', border: '1px solid #ddd', borderRadius: '4px' }}
+                                  placeholder="Enter script"
+                                />
+                              ) : (
+                                <textarea
+                                  readOnly
+                                  value={job.script}
+                                  style={{ width: '100%', minHeight: '200px', padding: '10px', fontFamily: 'monospace', fontSize: '12px' }}
+                                />
+                              )}
+                            </div>
+                          )}
+                          <div>
+                            <h4>Tags</h4>
+                            {editingJob === job.id ? (
+                              <input
+                                type="text"
+                                value={editValues[job.id]?.tags || ''}
+                                onChange={(e) => handleEditChange(job.id, 'tags', e.target.value)}
+                                style={{ width: '100%', padding: '8px', fontSize: '13px', border: '1px solid #ddd', borderRadius: '4px' }}
+                                placeholder="Enter tags (comma-separated)"
                               />
-                            </div>
-                          )}
-                          {job.tags && job.tags.length > 0 && (
-                            <div>
-                              <h4>Tags</h4>
-                              <p>{job.tags.join(', ')}</p>
-                            </div>
-                          )}
+                            ) : (
+                              <p>{job.tags && job.tags.length > 0 ? job.tags.join(', ') : 'No tags'}</p>
+                            )}
+                          </div>
                           <div>
                             <h4>URLs</h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
