@@ -292,11 +292,9 @@ DESCRIPTION REQUIREMENTS - CRITICAL:
 - DO NOT modify the format, labels, or structure in any way
 - DO NOT add extra text, paragraphs, or content beyond what's specified
 
-EXACT TEMPLATE TO USE (copy this exactly):
+EXACT TEMPLATE TO USE (copy this exactly - NO bracket labels):
 
-[HOOK, keep it very short. like two sentences] [Write exactly two sentences about what they'll learn in this video]
-
-[Always include these in this exact format. nothing more or less:]
+[Write exactly two sentences about what they'll learn in this video]
 
 Lead Generate Tool: ScrapeScorpion.com
 
@@ -304,12 +302,14 @@ Subscribe: Youtube.com/@MoneyLeads
 
 CRITICAL RULES:
 1. The hook must be exactly two sentences (no more, no less)
-2. Use the EXACT label format: [HOOK, keep it very short. like two sentences]
-3. Use the EXACT label format: [Always include these in this exact format. nothing more or less:]
-4. Include the blank lines exactly as shown (one blank line after hook, one after the label)
-5. DO NOT add any other text, paragraphs, or content
-6. Tags will be added separately - DO NOT include them in the description
-7. If you deviate from this format, the description will be rejected and reformatted
+2. NO bracket labels - just write the hook text directly
+3. Include one blank line after the hook
+4. Then include "Lead Generate Tool: ScrapeScorpion.com" on its own line
+5. Then include "Subscribe: Youtube.com/@MoneyLeads" on its own line
+6. DO NOT add any other text, paragraphs, or content
+7. DO NOT use brackets or labels - just the hook text and the two links
+8. Tags will be added separately - DO NOT include them in the description
+9. If you deviate from this format, the description will be rejected and reformatted
 
 TAGS REQUIREMENTS:
 - Generate 10-15 relevant tags/keywords
@@ -428,10 +428,8 @@ Generate now:"""
             if not hook_text.endswith('.'):
                 hook_text += '.'
         
-        # ALWAYS rebuild description in exact template format (never trust AI output)
-        description = f"""[HOOK, keep it very short. like two sentences] {hook_text}
-
-[Always include these in this exact format. nothing more or less:]
+        # ALWAYS rebuild description in exact template format (no bracket labels, just content)
+        description = f"""{hook_text}
 
 Lead Generate Tool: ScrapeScorpion.com
 
