@@ -5,16 +5,23 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const jobId = searchParams.get('id')
-    const jobIds = searchParams.get('ids')?.split(',')
+    const jobIdsParam = searchParams.get('ids')
 
-    if (!jobId && !jobIds) {
+    // Handle both single ID and comma-separated IDs
+    let idsToDelete: string[] = []
+    
+    if (jobIdsParam) {
+      idsToDelete = jobIdsParam.split(',').filter(id => id.trim().length > 0)
+    } else if (jobId) {
+      idsToDelete = [jobId]
+    }
+
+    if (idsToDelete.length === 0) {
       return NextResponse.json(
         { error: 'Job ID(s) required' },
         { status: 400 }
       )
     }
-
-    const idsToDelete = jobIds || [jobId!]
 
     // Delete associated files from storage (optional cleanup)
     // Note: This is optional - Supabase will handle CASCADE deletes for youtube_videos table

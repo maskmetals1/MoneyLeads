@@ -340,19 +340,33 @@ export default function Home() {
 
     try {
       const response = await fetch(`/api/delete-job?ids=${jobIds.join(',')}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       })
 
-      const data = await response.json()
-      
+      // Check if response is OK before parsing JSON
       if (!response.ok) {
-        throw new Error(data.error || 'Delete failed')
+        // Try to get error message from response
+        let errorMessage = 'Delete failed'
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorMessage
+        } catch {
+          // If response isn't JSON, get text
+          const text = await response.text()
+          errorMessage = text || `Server error: ${response.status} ${response.statusText}`
+        }
+        throw new Error(errorMessage)
       }
 
+      const data = await response.json()
       setMessage({ type: 'success', text: data.message || 'Jobs deleted successfully' })
       setSelectedRows(new Set()) // Clear selection
       loadJobs()
     } catch (error: any) {
+      console.error('Delete error:', error)
       setMessage({ type: 'error', text: error.message || 'Failed to delete jobs' })
     } finally {
       setProcessing(new Set())
