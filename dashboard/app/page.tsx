@@ -757,18 +757,6 @@ export default function Home() {
                             Post
                           </button>
                         )}
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            deleteJobs([job.id])
-                          }}
-                          className="btn btn-secondary"
-                          style={{ fontSize: '11px', padding: '4px 8px', backgroundColor: '#dc3545', color: 'white', marginLeft: '4px' }}
-                          disabled={processing.has(job.id)}
-                          title="Delete this job"
-                        >
-                          🗑️
-                        </button>
                       </div>
                     </td>
                   </tr>
