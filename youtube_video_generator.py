@@ -237,30 +237,11 @@ def generate_word_timestamps(audio_path: Path, model_name: str = "base") -> Opti
         
         # Always use CPU (no GPU support)
         model = whisper.load_model(model_name, device="cpu")
-        try:
-            result = model.transcribe(
-                str(audio_path),
-                word_timestamps=True,
-                fp16=False  # Disable fp16 for better compatibility
-            )
-        except BrokenPipeError as e:
-            print(f"  ⚠️  Broken pipe during transcription (retrying...): {e}")
-            # Retry once
-            result = model.transcribe(
-                str(audio_path),
-                word_timestamps=True,
-                fp16=False
-            )
-        except OSError as e:
-            if e.errno == 32:  # Broken pipe
-                print(f"  ⚠️  Broken pipe during transcription (retrying...): {e}")
-                result = model.transcribe(
-                    str(audio_path),
-                    word_timestamps=True,
-                    fp16=False
-                )
-            else:
-                raise
+        result = model.transcribe(
+            str(audio_path),
+            word_timestamps=True,
+            fp16=False  # Disable fp16 for better compatibility
+        )
         
         words = []
         for segment in result.get("segments", []):
@@ -379,60 +360,17 @@ def render_final_video(
         # Write video without subtitles first (to temp file)
         temp_video = output_path.parent / f".temp_{output_path.name}"
         print(f"  📹 Writing video with audio...")
-        try:
-            final_video.write_videofile(
-                str(temp_video),
-                codec='libx264',
-                audio_codec='aac',
-                fps=24,
-                preset='fast',  # Faster preset
-                threads=multiprocessing.cpu_count(),  # Use all CPU cores
-                verbose=False,
-                logger=None,
-                write_logfile=False  # Disable logfile to avoid file conflicts
-            )
-        except BrokenPipeError as e:
-            print(f"  ⚠️  Broken pipe during video write (retrying...): {e}")
-            # Retry once
-            try:
-                final_video.write_videofile(
-                    str(temp_video),
-                    codec='libx264',
-                    audio_codec='aac',
-                    fps=24,
-                    preset='fast',
-                    threads=multiprocessing.cpu_count(),
-                    verbose=False,
-                    logger=None,
-                    write_logfile=False
-                )
-            except Exception as retry_error:
-                print(f"  ❌ Retry also failed: {retry_error}")
-                final_video.close()
-                video_clip.close()
-                return False
-        except OSError as e:
-            if e.errno == 32:  # Broken pipe
-                print(f"  ⚠️  Broken pipe during video write (retrying...): {e}")
-                try:
-                    final_video.write_videofile(
-                        str(temp_video),
-                        codec='libx264',
-                        audio_codec='aac',
-                        fps=24,
-                        preset='fast',
-                        threads=multiprocessing.cpu_count(),
-                        verbose=False,
-                        logger=None,
-                        write_logfile=False
-                    )
-                except Exception as retry_error:
-                    print(f"  ❌ Retry also failed: {retry_error}")
-                    final_video.close()
-                    video_clip.close()
-                    return False
-            else:
-                raise
+        final_video.write_videofile(
+            str(temp_video),
+            codec='libx264',
+            audio_codec='aac',
+            fps=24,
+            preset='fast',  # Faster preset
+            threads=multiprocessing.cpu_count(),  # Use all CPU cores
+            verbose=False,
+            logger=None,
+            write_logfile=False  # Disable logfile to avoid file conflicts
+        )
         
         # Close clips to free memory
         final_video.close()
