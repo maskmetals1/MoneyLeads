@@ -385,12 +385,25 @@ def render_final_video(
         
         print(f"  🎬 Rendering final video...")
         
+        # Load audio and ensure video duration matches audio duration exactly
+        audio_clip = mp.AudioFileClip(str(audio_path))
+        audio_duration = audio_clip.duration
+        
+        # Make sure video duration matches audio duration
+        if abs(video_clip.duration - audio_duration) > 0.1:
+            print(f"  ⚠️  Duration mismatch detected: video={video_clip.duration:.2f}s, audio={audio_duration:.2f}s")
+            print(f"  🔧 Adjusting video duration to match audio...")
+            video_clip = video_clip.set_duration(audio_duration)
+        
         # Set audio to video
-        final_video = video_clip.set_audio(mp.AudioFileClip(str(audio_path)))
+        final_video = video_clip.set_audio(audio_clip)
+        
+        # Ensure final video duration matches audio exactly
+        final_video = final_video.set_duration(audio_duration)
         
         # Write video without subtitles first (to temp file)
         temp_video = output_path.parent / f".temp_{output_path.name}"
-        print(f"  📹 Writing video with audio...")
+        print(f"  📹 Writing video with audio (duration: {audio_duration:.2f}s)...")
         final_video.write_videofile(
             str(temp_video),
             codec='libx264',
