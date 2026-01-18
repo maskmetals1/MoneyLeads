@@ -237,10 +237,30 @@ def generate_word_timestamps(audio_path: Path, model_name: str = "base") -> Opti
         
         # Always use CPU (no GPU support)
         model = whisper.load_model(model_name, device="cpu")
-        result = model.transcribe(
-            str(audio_path),
-            word_timestamps=True
-        )
+        try:
+            result = model.transcribe(
+                str(audio_path),
+                word_timestamps=True,
+                fp16=False  # Disable fp16 for better compatibility
+            )
+        except BrokenPipeError as e:
+            print(f"  ⚠️  Broken pipe during transcription (retrying...): {e}")
+            # Retry once
+            result = model.transcribe(
+                str(audio_path),
+                word_timestamps=True,
+                fp16=False
+            )
+        except OSError as e:
+            if e.errno == 32:  # Broken pipe
+                print(f"  ⚠️  Broken pipe during transcription (retrying...): {e}")
+                result = model.transcribe(
+                    str(audio_path),
+                    word_timestamps=True,
+                    fp16=False
+                )
+            else:
+                raise
         
         words = []
         for segment in result.get("segments", []):
@@ -359,16 +379,60 @@ def render_final_video(
         # Write video without subtitles first (to temp file)
         temp_video = output_path.parent / f".temp_{output_path.name}"
         print(f"  📹 Writing video with audio...")
-        final_video.write_videofile(
-            str(temp_video),
-            codec='libx264',
-            audio_codec='aac',
-            fps=24,
-            preset='fast',  # Faster preset
-            threads=multiprocessing.cpu_count(),  # Use all CPU cores
-            verbose=False,
-            logger=None
-        )
+        try:
+            final_video.write_videofile(
+                str(temp_video),
+                codec='libx264',
+                audio_codec='aac',
+                fps=24,
+                preset='fast',  # Faster preset
+                threads=multiprocessing.cpu_count(),  # Use all CPU cores
+                verbose=False,
+                logger=None,
+                write_logfile=False  # Disable logfile to avoid file conflicts
+            )
+        except BrokenPipeError as e:
+            print(f"  ⚠️  Broken pipe during video write (retrying...): {e}")
+            # Retry once
+            try:
+                final_video.write_videofile(
+                    str(temp_video),
+                    codec='libx264',
+                    audio_codec='aac',
+                    fps=24,
+                    preset='fast',
+                    threads=multiprocessing.cpu_count(),
+                    verbose=False,
+                    logger=None,
+                    write_logfile=False
+                )
+            except Exception as retry_error:
+                print(f"  ❌ Retry also failed: {retry_error}")
+                final_video.close()
+                video_clip.close()
+                return False
+        except OSError as e:
+            if e.errno == 32:  # Broken pipe
+                print(f"  ⚠️  Broken pipe during video write (retrying...): {e}")
+                try:
+                    final_video.write_videofile(
+                        str(temp_video),
+                        codec='libx264',
+                        audio_codec='aac',
+                        fps=24,
+                        preset='fast',
+                        threads=multiprocessing.cpu_count(),
+                        verbose=False,
+                        logger=None,
+                        write_logfile=False
+                    )
+                except Exception as retry_error:
+                    print(f"  ❌ Retry also failed: {retry_error}")
+                    final_video.close()
+                    video_clip.close()
+                    return False
+            else:
+                raise
         
         # Close clips to free memory
         final_video.close()
@@ -390,11 +454,55 @@ def render_final_video(
             str(output_path)
         ]
         
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True
-        )
+        # Run ffmpeg with proper error handling for broken pipes
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                stdin=subprocess.DEVNULL,  # Prevent stdin issues
+                stderr=subprocess.PIPE,    # Capture stderr separately
+                stdout=subprocess.PIPE     # Capture stdout separately
+            )
+        except BrokenPipeError as e:
+            print(f"  ⚠️  Broken pipe error (retrying...): {e}")
+            # Retry once
+            try:
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    stdin=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE,
+                    stdout=subprocess.PIPE
+                )
+            except Exception as retry_error:
+                print(f"  ❌ Retry also failed: {retry_error}")
+                if temp_video.exists():
+                    temp_video.unlink()
+                return False
+        except OSError as e:
+            if e.errno == 32:  # Broken pipe
+                print(f"  ⚠️  Broken pipe error (retrying...): {e}")
+                try:
+                    result = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        stdin=subprocess.DEVNULL,
+                        stderr=subprocess.PIPE,
+                        stdout=subprocess.PIPE
+                    )
+                except Exception as retry_error:
+                    print(f"  ❌ Retry also failed: {retry_error}")
+                    if temp_video.exists():
+                        temp_video.unlink()
+                    return False
+            else:
+                print(f"  ❌ OS Error: {e}")
+                if temp_video.exists():
+                    temp_video.unlink()
+                return False
         
         # Cleanup temp file
         if temp_video.exists():
@@ -404,7 +512,8 @@ def render_final_video(
             print(f"  ✅ Final video rendered: {output_path.name}")
             return True
         else:
-            print(f"  ❌ FFmpeg error: {result.stderr}")
+            error_output = result.stderr if result.stderr else result.stdout
+            print(f"  ❌ FFmpeg error: {error_output}")
             return False
             
     except Exception as e:

@@ -7,6 +7,7 @@ Dependencies: script, voiceover_url
 
 import sys
 import shutil
+import time
 from pathlib import Path
 from typing import List, Dict, Any, Tuple
 from base_worker import BaseWorker
@@ -62,20 +63,42 @@ class VideoWorker(BaseWorker):
             print(f"\n[1/2] Rendering video...")
             self.supabase.update_job_status(job_id, "rendering_video")
             
-            # Create temp directory for this job
-            temp_dir = Path(f"/tmp/youtube_automation_{job_id}")
+            # Create temp directory for this job (use unique name to avoid conflicts)
+            import uuid
+            unique_id = str(uuid.uuid4())[:8]
+            temp_dir = Path(f"/tmp/youtube_automation_{job_id}_{unique_id}")
             temp_dir.mkdir(parents=True, exist_ok=True)
             
             video_path = temp_dir / "video.mp4"
             
-            # Process video (this will use the script and generate voiceover if needed,
-            # but we already have voiceover, so it should use it)
-            # Actually, video_processor needs to be updated to accept existing voiceover
-            # For now, let's process it normally - it will regenerate voiceover but that's okay
-            success, duration = self.video_processor.process_video(script, video_path)
+            # Process video with retry logic for broken pipe errors
+            max_retries = 2
+            success = False
+            duration = None
+            
+            for attempt in range(max_retries):
+                try:
+                    success, duration = self.video_processor.process_video(script, video_path)
+                    if success and video_path.exists():
+                        break
+                    elif attempt < max_retries - 1:
+                        print(f"  ⚠️  Attempt {attempt + 1} failed, retrying...")
+                        time.sleep(2)  # Brief pause before retry
+                except BrokenPipeError as e:
+                    if attempt < max_retries - 1:
+                        print(f"  ⚠️  Broken pipe error (attempt {attempt + 1}), retrying...: {e}")
+                        time.sleep(2)
+                    else:
+                        raise
+                except OSError as e:
+                    if e.errno == 32 and attempt < max_retries - 1:  # Broken pipe
+                        print(f"  ⚠️  Broken pipe error (attempt {attempt + 1}), retrying...: {e}")
+                        time.sleep(2)
+                    else:
+                        raise
             
             if not success:
-                raise Exception("Video processing failed")
+                raise Exception("Video processing failed after retries")
             
             if not video_path.exists():
                 raise Exception("Video file not found after processing")
