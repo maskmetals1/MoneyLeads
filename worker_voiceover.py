@@ -56,25 +56,21 @@ class VoiceoverWorker(BaseWorker):
             temp_dir = Path(f"/tmp/youtube_automation_{job_id}")
             temp_dir.mkdir(parents=True, exist_ok=True)
             
-            # Create a dummy video path (we only need voiceover)
-            video_path = temp_dir / "video.mp4"
+            # Generate voiceover directly to temp directory
+            voiceover_path = temp_dir / "voiceover.mp3"
             
-            # Process video (this generates voiceover)
-            # Note: We're using process_video but only using the voiceover part
-            success, duration = self.video_processor.process_video(script, video_path)
+            # Generate voiceover only (no video processing)
+            success, duration = self.video_processor.generate_voiceover_only(script, voiceover_path)
             
             if not success:
-                raise Exception("Voiceover processing failed")
+                raise Exception("Voiceover generation failed")
             
-            # Get voiceover path
-            voiceover_path = self.video_processor.get_voiceover_path()
-            if not voiceover_path or not voiceover_path.exists():
+            # Verify voiceover file exists
+            if not voiceover_path.exists():
                 raise Exception("Voiceover file not found after processing")
             
-            # Copy to worker's temp dir to ensure it persists
-            import shutil
-            worker_voiceover_path = temp_dir / "voiceover.mp3"
-            shutil.copy2(voiceover_path, worker_voiceover_path)
+            # Use the voiceover path directly (no need to copy)
+            worker_voiceover_path = voiceover_path
             
             # Upload and save voiceover URL immediately
             voiceover_url = self.supabase.upload_voiceover(worker_voiceover_path, job_id)

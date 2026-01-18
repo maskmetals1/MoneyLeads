@@ -44,6 +44,39 @@ class VideoProcessor:
         self.temp_dir = None
         self.voiceover_path = None
     
+    def generate_voiceover_only(self, script_text: str, output_path: Path) -> Tuple[bool, Optional[float]]:
+        """
+        Generate only the voiceover (MP3) from script text
+        
+        Args:
+            script_text: The video script text
+            output_path: Where to save the voiceover MP3 file
+        
+        Returns:
+            (success: bool, duration: float or None)
+        """
+        # Create temp directory for intermediate files
+        self.temp_dir = Path(tempfile.mkdtemp(prefix="youtube_automation_"))
+        self.voiceover_path = None
+        
+        try:
+            # Generate voiceover
+            success, duration = generate_voiceover(script_text, output_path, self.voice)
+            if not success:
+                return False, None
+            
+            # Store voiceover path for later access
+            self.voiceover_path = output_path
+            
+            return True, duration
+            
+        except Exception as e:
+            print(f"❌ Error generating voiceover: {e}")
+            import traceback
+            traceback.print_exc()
+            return False, None
+        # Note: Don't cleanup temp_dir here - let the caller handle it
+    
     def process_video(self, script_text: str, output_path: Path) -> Tuple[bool, Optional[float]]:
         """
         Process a complete video from script text
