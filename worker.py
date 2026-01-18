@@ -117,11 +117,11 @@ class Worker:
                 youtube_video_id = youtube_result["video_id"]
                 youtube_url = youtube_result["video_url"]
                 
-                # Save YouTube video info
+                # Save YouTube video info immediately
                 self.supabase.save_youtube_video(job_id, youtube_video_id, title, description)
                 self.supabase.update_job_with_youtube(job_id, youtube_video_id, youtube_url)
                 
-                print(f"  ✅ Uploaded to YouTube: {youtube_url}")
+                print(f"  ✅ Uploaded to YouTube and saved: {youtube_url}")
                 
                 # Cleanup
                 print(f"\n[3/3] Cleaning up...")
@@ -178,11 +178,11 @@ class Worker:
                 youtube_video_id = youtube_result["video_id"]
                 youtube_url = youtube_result["video_url"]
                 
-                # Save YouTube video info
+                # Save YouTube video info immediately
                 self.supabase.save_youtube_video(job_id, youtube_video_id, title, description)
                 self.supabase.update_job_with_youtube(job_id, youtube_video_id, youtube_url)
                 
-                print(f"  ✅ Posted to YouTube: {youtube_url}")
+                print(f"  ✅ Posted to YouTube and saved: {youtube_url}")
                 
                 # Cleanup
                 try:
@@ -213,13 +213,36 @@ class Worker:
                 print(f"\n[1/5] Generating script and metadata...")
                 self.supabase.update_job_status(job_id, "generating_script")
             
+                # Generate script first
                 script = self.script_generator.generate_script(topic)
+                
+                # Save script immediately
+                self.supabase.update_job_status(job_id, status=None, script=script)
+                print(f"  ✅ Script generated and saved ({len(script)} chars)")
+                
+                # Generate title, description, tags
                 title, description, tags = self.script_generator.generate_title_and_description(script)
                 
-                # Save script, title, description to database
-                self.supabase.update_job_script(job_id, script, title, description, tags)
-                print(f"  ✅ Script generated ({len(script)} chars)")
-                print(f"  ✅ Title: {title}")
+                # Save title immediately
+                self.supabase.update_job_status(job_id, status=None, title=title)
+                print(f"  ✅ Title generated and saved: {title}")
+                
+                # Save description immediately
+                self.supabase.update_job_status(job_id, status=None, description=description)
+                print(f"  ✅ Description generated and saved")
+                
+                # Save tags immediately
+                self.supabase.update_job_status(job_id, status=None, tags=tags)
+                print(f"  ✅ Tags generated and saved: {len(tags)} tags")
+                
+                # If this was a single-step action, mark as ready for next step
+                if action_needed == "generate_script" and not run_all:
+                    # Clear action_needed from metadata
+                    current_job = self.supabase.get_job(job_id)
+                    current_metadata = current_job.get("metadata", {}) if current_job else {}
+                    current_metadata.pop("action_needed", None)
+                    self.supabase.update_job_status(job_id, "pending", metadata=current_metadata)
+                    print(f"  ✅ Script generation complete - ready for next step")
             else:
                 # Use existing script
                 script = job.get("script")
@@ -253,6 +276,25 @@ class Worker:
                     worker_voiceover_path = temp_dir / "voiceover.mp3"
                     shutil.copy2(voiceover_path, worker_voiceover_path)
                     voiceover_path = worker_voiceover_path
+                    
+                    # Upload and save voiceover URL immediately
+                    if not job.get("voiceover_url"):
+                        voiceover_url = self.supabase.upload_voiceover(voiceover_path, job_id)
+                        print(f"  ✅ Voiceover uploaded and saved: {voiceover_url}")
+                    else:
+                        voiceover_url = job.get("voiceover_url")
+                        print(f"  ✅ Voiceover already exists")
+                    
+                    # If this was a single-step action, mark as ready for next step
+                    if action_needed == "generate_voiceover" and not run_all:
+                        # Clear action_needed from metadata
+                        current_job = self.supabase.get_job(job_id)
+                        current_metadata = current_job.get("metadata", {}) if current_job else {}
+                        current_metadata.pop("action_needed", None)
+                        self.supabase.update_job_status(job_id, "pending", metadata=current_metadata)
+                        print(f"  ✅ Voiceover generation complete - ready for next step")
+                else:
+                    raise Exception("Voiceover file not found after processing")
             else:
                 # Use existing voiceover or skip to video
                 temp_dir = Path(f"/tmp/youtube_automation_{job_id}")
@@ -272,22 +314,32 @@ class Worker:
                     raise Exception("Voiceover required but not found")
             
             if start_from_video or (run_all and not video_url):
-            
                 # Step 3: Upload files to Supabase Storage
                 print(f"\n[3/5] Uploading files to storage...")
                 self.supabase.update_job_status(job_id, "rendering_video")
                 
+                # Ensure voiceover is uploaded if it wasn't already
                 if voiceover_path and voiceover_path.exists() and not job.get("voiceover_url"):
                     voiceover_url = self.supabase.upload_voiceover(voiceover_path, job_id)
-                    print(f"  ✅ Voiceover uploaded: {voiceover_url}")
+                    print(f"  ✅ Voiceover uploaded and saved: {voiceover_url}")
                 else:
                     voiceover_url = job.get("voiceover_url")
                 
                 if not video_path.exists():
                     raise Exception("Video file not found after processing")
                 
+                # Upload and save video URL immediately
                 video_url = self.supabase.upload_video(video_path, job_id)
-                print(f"  ✅ Video uploaded: {video_url}")
+                print(f"  ✅ Video uploaded and saved: {video_url}")
+                
+                # If this was a single-step action, mark as ready for next step
+                if action_needed == "create_video" and not run_all:
+                    # Clear action_needed from metadata
+                    current_job = self.supabase.get_job(job_id)
+                    current_metadata = current_job.get("metadata", {}) if current_job else {}
+                    current_metadata.pop("action_needed", None)
+                    self.supabase.update_job_status(job_id, "pending", metadata=current_metadata)
+                    print(f"  ✅ Video creation complete - ready for next step")
             else:
                 # Use existing video
                 video_url = job.get("video_url")
@@ -322,11 +374,11 @@ class Worker:
                 youtube_video_id = youtube_result["video_id"]
                 youtube_url = youtube_result["video_url"]
                 
-                # Save YouTube video info
+                # Save YouTube video info immediately
                 self.supabase.save_youtube_video(job_id, youtube_video_id, title, description)
                 self.supabase.update_job_with_youtube(job_id, youtube_video_id, youtube_url)
                 
-                print(f"  ✅ Uploaded to YouTube: {youtube_url}")
+                print(f"  ✅ Uploaded to YouTube and saved: {youtube_url}")
             else:
                 print(f"  ✅ Video already uploaded to YouTube")
                 youtube_url = job.get("youtube_url")

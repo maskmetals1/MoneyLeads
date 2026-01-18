@@ -23,6 +23,16 @@ interface Job {
   metadata?: any
 }
 
+interface WorkerStatus {
+  workersRunning: boolean
+  statusCounts: Record<string, number>
+  pendingJobs: Array<{ id: string; topic: string; action: string }>
+  processingJobs: Array<{ id: string; topic: string; status: string }>
+  recentActivity: Array<{ id: string; topic: string; status: string; minutesAgo: number }>
+  totalJobs: number
+  timestamp: string
+}
+
 export default function Home() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
@@ -30,6 +40,8 @@ export default function Home() {
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
   const [processing, setProcessing] = useState<Set<string>>(new Set())
+  const [workerStatus, setWorkerStatus] = useState<WorkerStatus | null>(null)
+  const [showStatusPanel, setShowStatusPanel] = useState(false)
 
   const loadJobs = async () => {
     try {
@@ -49,8 +61,21 @@ export default function Home() {
     }
   }
 
+  const loadWorkerStatus = async () => {
+    try {
+      const response = await fetch('/api/worker-status')
+      if (response.ok) {
+        const data = await response.json()
+        setWorkerStatus(data)
+      }
+    } catch (error) {
+      console.error('Error loading worker status:', error)
+    }
+  }
+
   useEffect(() => {
     loadJobs()
+    loadWorkerStatus()
 
     // Real-time subscription
     const channel = supabase
@@ -59,12 +84,17 @@ export default function Home() {
         { event: '*', schema: 'public', table: 'video_jobs' },
         () => {
           loadJobs()
+          loadWorkerStatus()
         }
       )
       .subscribe()
 
+    // Auto-refresh worker status every 10 seconds
+    const statusInterval = setInterval(loadWorkerStatus, 10000)
+
     return () => {
       supabase.removeChannel(channel)
+      clearInterval(statusInterval)
     }
   }, [])
 
@@ -83,6 +113,70 @@ export default function Home() {
       failed: 'Failed'
     }
     return statusMap[status] || status
+  }
+
+  // Check dependencies for each action
+  const checkDependencies = (job: Job, action: string): { canRun: boolean, missing: string[] } => {
+    const missing: string[] = []
+    
+    switch (action) {
+      case 'generate_script':
+        // Script generation needs: topic (always available)
+        if (!job.topic) missing.push('topic')
+        break
+      
+      case 'generate_voiceover':
+        // Voiceover needs: script
+        if (!job.script) missing.push('script')
+        break
+      
+      case 'create_video':
+        // Video needs: script, voiceover_url
+        if (!job.script) missing.push('script')
+        if (!job.voiceover_url) missing.push('voiceover_url')
+        break
+      
+      case 'post_to_youtube':
+        // YouTube upload needs: title, description, video_url
+        if (!job.title) missing.push('title')
+        if (job.description === undefined || job.description === null) missing.push('description')
+        if (!job.video_url) missing.push('video_url')
+        break
+      
+      case 'run_all':
+        // Run all needs: topic (always available)
+        if (!job.topic) missing.push('topic')
+        break
+    }
+    
+    return { canRun: missing.length === 0, missing }
+  }
+
+  // Get cell highlight class based on missing dependencies
+  const getCellHighlight = (job: Job, fieldName: string, action?: string): string => {
+    // If no action specified, determine next logical action
+    if (!action) {
+      if (!job.script) action = 'generate_script'
+      else if (!job.voiceover_url) action = 'generate_voiceover'
+      else if (!job.video_url) action = 'create_video'
+      else if (!job.youtube_url) action = 'post_to_youtube'
+      else return ''
+    }
+    
+    const { missing } = checkDependencies(job, action)
+    if (missing.includes(fieldName)) {
+      return 'missing-dependency'
+    }
+    return ''
+  }
+  
+  // Get the next logical action for a job
+  const getNextAction = (job: Job): string | null => {
+    if (!job.script) return 'generate_script'
+    if (!job.voiceover_url) return 'generate_voiceover'
+    if (!job.video_url) return 'create_video'
+    if (!job.youtube_url) return 'post_to_youtube'
+    return null
   }
 
   const toggleRowSelection = (jobId: string) => {
@@ -108,6 +202,25 @@ export default function Home() {
     
     if (jobIds.length === 0) {
       setMessage({ type: 'error', text: 'Please select at least one row' })
+      return
+    }
+
+    // Check dependencies for each job
+    const jobsToProcess = jobs.filter(j => jobIds.includes(j.id))
+    const missingDeps: string[] = []
+    
+    for (const job of jobsToProcess) {
+      const { canRun, missing } = checkDependencies(job, action)
+      if (!canRun) {
+        missingDeps.push(`Job ${job.id.substring(0, 8)}: missing ${missing.join(', ')}`)
+      }
+    }
+    
+    if (missingDeps.length > 0) {
+      setMessage({ 
+        type: 'error', 
+        text: `Missing dependencies:\n${missingDeps.join('\n')}\n\nHighlighted cells show what's needed.` 
+      })
       return
     }
 
@@ -159,6 +272,42 @@ export default function Home() {
     }
   }
 
+  const deleteJobs = async (jobIds: string[]) => {
+    if (jobIds.length === 0) {
+      setMessage({ type: 'error', text: 'Please select at least one row to delete' })
+      return
+    }
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${jobIds.length} job(s)?\n\nThis will permanently delete:\n- The job record\n- Associated files (voiceovers, videos, scripts)\n- YouTube video records\n\nThis action cannot be undone.`
+    )
+
+    if (!confirmed) return
+
+    setProcessing(new Set(jobIds))
+    setMessage(null)
+
+    try {
+      const response = await fetch(`/api/delete-job?ids=${jobIds.join(',')}`, {
+        method: 'DELETE'
+      })
+
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Delete failed')
+      }
+
+      setMessage({ type: 'success', text: data.message || 'Jobs deleted successfully' })
+      setSelectedRows(new Set()) // Clear selection
+      loadJobs()
+    } catch (error: any) {
+      setMessage({ type: 'error', text: error.message || 'Failed to delete jobs' })
+    } finally {
+      setProcessing(new Set())
+    }
+  }
+
   const truncateText = (text: string | undefined, maxLength: number = 50) => {
     if (!text) return '-'
     return text.length > maxLength ? text.substring(0, maxLength) + '...' : text
@@ -177,15 +326,123 @@ export default function Home() {
       <div className="header">
         <h1>YouTube Automation Dashboard</h1>
         <p>Complete Database View - Spreadsheet Style</p>
-        <div style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
+        <div style={{ marginTop: '10px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <Link href="/manual-upload" className="btn btn-secondary">
             Manual Upload Page
           </Link>
           <button onClick={loadJobs} className="btn btn-secondary">
             Refresh
           </button>
+          <button 
+            onClick={() => {
+              setShowStatusPanel(!showStatusPanel)
+              if (!showStatusPanel) loadWorkerStatus()
+            }} 
+            className="btn btn-secondary"
+            style={{ backgroundColor: showStatusPanel ? '#4a90e2' : undefined, color: showStatusPanel ? 'white' : undefined }}
+          >
+            {showStatusPanel ? '▼' : '▶'} Worker Status
+          </button>
         </div>
       </div>
+
+      {showStatusPanel && workerStatus && (
+        <div className="card" style={{ marginBottom: '20px', backgroundColor: '#f9f9f9' }}>
+          <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ 
+              width: '12px', 
+              height: '12px', 
+              borderRadius: '50%', 
+              backgroundColor: workerStatus.workersRunning ? '#00aa00' : '#ff0000',
+              display: 'inline-block',
+              animation: workerStatus.workersRunning ? 'pulse 2s infinite' : 'none'
+            }}></span>
+            Worker Status {workerStatus.workersRunning ? '(Running)' : '(Not Detected)'}
+          </h3>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '15px' }}>
+            <div>
+              <strong>Job Status Summary:</strong>
+              <div style={{ marginTop: '5px', fontSize: '14px' }}>
+                {Object.entries(workerStatus.statusCounts).map(([status, count]) => {
+                  const emoji = {
+                    pending: '⏳',
+                    generating_script: '📝',
+                    creating_voiceover: '🎤',
+                    rendering_video: '🎬',
+                    uploading: '📤',
+                    completed: '✅',
+                    failed: '❌'
+                  }[status] || '📋'
+                  return (
+                    <div key={status} style={{ marginBottom: '3px' }}>
+                      {emoji} {status}: {count}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+            
+            <div>
+              <strong>Pending Jobs:</strong> {workerStatus.pendingJobs.length}
+              {workerStatus.pendingJobs.length > 0 && (
+                <div style={{ marginTop: '5px', fontSize: '12px', maxHeight: '100px', overflowY: 'auto' }}>
+                  {workerStatus.pendingJobs.slice(0, 5).map((job, idx) => (
+                    <div key={idx} style={{ marginBottom: '2px' }}>
+                      • {job.id}... - {job.topic.substring(0, 20)} (needs: {job.action})
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div>
+              <strong>Processing:</strong> {workerStatus.processingJobs.length}
+              {workerStatus.processingJobs.length > 0 && (
+                <div style={{ marginTop: '5px', fontSize: '12px', maxHeight: '100px', overflowY: 'auto' }}>
+                  {workerStatus.processingJobs.map((job, idx) => (
+                    <div key={idx} style={{ marginBottom: '2px' }}>
+                      • {job.id}... - {job.topic.substring(0, 20)} ({job.status})
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div>
+              <strong>Recent Activity (Last 10 min):</strong> {workerStatus.recentActivity.length}
+              {workerStatus.recentActivity.length > 0 && (
+                <div style={{ marginTop: '5px', fontSize: '12px', maxHeight: '100px', overflowY: 'auto' }}>
+                  {workerStatus.recentActivity.map((activity, idx) => (
+                    <div key={idx} style={{ marginBottom: '2px' }}>
+                      • {activity.id}... - {activity.status} ({activity.minutesAgo}m ago)
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {!workerStatus.workersRunning && workerStatus.pendingJobs.length > 0 && (
+            <div style={{ 
+              padding: '10px', 
+              backgroundColor: '#fff3cd', 
+              border: '1px solid #ffc107', 
+              borderRadius: '4px',
+              marginTop: '10px'
+            }}>
+              ⚠️ <strong>Warning:</strong> You have {workerStatus.pendingJobs.length} pending job(s) but no workers detected. 
+              Start workers to process jobs: <code>./start_workers.sh</code>
+            </div>
+          )}
+          
+          <div style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
+            Last updated: {new Date(workerStatus.timestamp).toLocaleTimeString()} | 
+            Total jobs: {workerStatus.totalJobs} | 
+            Auto-refreshes every 10 seconds
+          </div>
+        </div>
+      )}
 
       {message && (
         <div className={message.type === 'error' ? 'error-message' : 'success-message'}>
@@ -236,6 +493,14 @@ export default function Home() {
             >
               Post to YouTube
             </button>
+            <button 
+              onClick={() => deleteJobs(Array.from(selectedRows))} 
+              className="btn btn-secondary"
+              disabled={selectedRows.size === 0 || processing.size > 0}
+              style={{ backgroundColor: '#dc3545', color: 'white', borderColor: '#dc3545' }}
+            >
+              🗑️ Delete Selected ({selectedRows.size})
+            </button>
           </div>
         </div>
 
@@ -284,14 +549,18 @@ export default function Home() {
                     <td style={{ fontFamily: 'monospace', fontSize: '11px' }}>
                       {job.id.substring(0, 8)}...
                     </td>
-                    <td>{truncateText(job.topic, 30)}</td>
-                    <td>{truncateText(job.title, 30)}</td>
+                    <td className={getCellHighlight(job, 'topic')}>
+                      {truncateText(job.topic, 30)}
+                    </td>
+                    <td className={getCellHighlight(job, 'title')}>
+                      {truncateText(job.title, 30)}
+                    </td>
                     <td>
                       <span className={`job-status ${job.status}`}>
                         {getStatusDisplay(job.status)}
                       </span>
                     </td>
-                    <td>
+                    <td className={getCellHighlight(job, 'script')}>
                       {job.script ? '✅' : '❌'}
                       {job.script && (
                         <span style={{ marginLeft: '5px', fontSize: '11px' }}>
@@ -299,8 +568,12 @@ export default function Home() {
                         </span>
                       )}
                     </td>
-                    <td>{job.voiceover_url ? '✅' : '❌'}</td>
-                    <td>{job.video_url ? '✅' : '❌'}</td>
+                    <td className={getCellHighlight(job, 'voiceover_url')}>
+                      {job.voiceover_url ? '✅' : '❌'}
+                    </td>
+                    <td className={getCellHighlight(job, 'video_url')}>
+                      {job.video_url ? '✅' : '❌'}
+                    </td>
                     <td>
                       {job.youtube_url ? (
                         <a href={job.youtube_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
@@ -351,6 +624,18 @@ export default function Home() {
                             Post
                           </button>
                         )}
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            deleteJobs([job.id])
+                          }}
+                          className="btn btn-secondary"
+                          style={{ fontSize: '11px', padding: '4px 8px', backgroundColor: '#dc3545', color: 'white', marginLeft: '4px' }}
+                          disabled={processing.has(job.id)}
+                          title="Delete this job"
+                        >
+                          🗑️
+                        </button>
                       </div>
                     </td>
                   </tr>

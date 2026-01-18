@@ -44,25 +44,28 @@ class SupabaseClient:
         
         return result.data if result.data else []
     
-    def update_job_status(self, job_id: str, status: str, error_message: Optional[str] = None, **updates) -> bool:
+    def update_job_status(self, job_id: str, status: Optional[str] = None, error_message: Optional[str] = None, **updates) -> bool:
         """Update job status and other fields"""
         update_data = {
-            "status": status,
             "updated_at": datetime.utcnow().isoformat()
         }
         
+        # Only update status if provided (not None)
+        if status is not None:
+            update_data["status"] = status
+            
+            # Set started_at if status is not pending
+            if status != "pending" and "started_at" not in updates:
+                existing = self.get_job(job_id)
+                if existing and not existing.get("started_at"):
+                    update_data["started_at"] = datetime.utcnow().isoformat()
+            
+            # Set completed_at if status is completed or failed
+            if status in ["completed", "failed"]:
+                update_data["completed_at"] = datetime.utcnow().isoformat()
+        
         if error_message:
             update_data["error_message"] = error_message
-        
-        # Set started_at if status is not pending
-        if status != "pending" and "started_at" not in updates:
-            existing = self.get_job(job_id)
-            if existing and not existing.get("started_at"):
-                update_data["started_at"] = datetime.utcnow().isoformat()
-        
-        # Set completed_at if status is completed or failed
-        if status in ["completed", "failed"]:
-            update_data["completed_at"] = datetime.utcnow().isoformat()
         
         # Merge any additional updates
         update_data.update(updates)

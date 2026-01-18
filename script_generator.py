@@ -31,7 +31,7 @@ class ScriptGenerator:
         Generate a video script from a topic
         
         Args:
-            topic: The topic/keyword for the video
+            topic: The topic/keyword for the video (e.g., "web agency", "AI automation agency")
             length: "short" (~2-3 min), "medium" (~4-5 min), "long" (~8-10 min)
         
         Returns:
@@ -43,36 +43,98 @@ class ScriptGenerator:
             "long": "8-10 minutes (approximately 1200-1500 words)"
         }
         
-        prompt = f"""Create a compelling YouTube video script about: {topic}
+        prompt = f"""You are creating a YouTube video script for a channel about profitable business models, side hustles, and money-making opportunities. The channel focuses on businesses that require lead generation.
 
-Requirements:
+TOPIC: {topic}
+
+CHANNEL CONTEXT:
+- This is a YouTube channel about money, business models, profitable businesses, and side hustles
+- The channel explains business models and teaches viewers how to get started
+- Always mention ScrapeScorpion.com (Scrape Scorpion) as the tool for generating leads
+- Focus on businesses that need lead generation: web agencies, AI agencies, AI automation companies, voice agent companies, website building companies, service-based companies, B2B companies
+
+SCRAPE SCORPION INFORMATION:
+- ScrapeScorpion.com is a cloud-based lead generation tool
+- It scrapes Google Maps, Yelp, Meta Ads, Zillow, and Instagram to find business leads
+- Provides: business name, phone number, address, website, and other contact info
+- No coding required, just click and run
+- Can generate thousands of leads in minutes
+- Multiple export options (CSV, JSON, Excel, XML, SQL, PDF)
+- Affordable pricing starting at $9.99/month
+- Free trial available
+- Perfect for agencies, sales professionals, and service businesses
+
+SCRIPT REQUIREMENTS:
 - Length: {length_guidance.get(length, length_guidance['medium'])}
-- Engaging hook in the first 10 seconds
-- Clear structure with main points
-- Conversational, natural tone
-- Include a call-to-action at the end
-- Format as plain text, no markdown
-- Write as if speaking directly to the camera
-- Use short sentences and paragraphs for better pacing
+- Style: Model after the "$1,200/week side hustle" style - fast-paced, engaging, "feels illegal but isn't" vibe
+- Hook: Start with a compelling hook in the first 10-15 seconds that grabs attention (e.g., "Most people think making $X means... That's not true.")
+- Structure:
+  1. Hook (0:00-0:30) - Attention-grabbing opening
+  2. The Model Overview (0:30-1:00) - Quick explanation of what this business is
+  3. Step-by-Step Breakdown (1:00-6:00) - 3-5 super easy steps explaining exactly how the viewer can get started
+  4. Lead Generation Section - Explain how to use ScrapeScorpion.com to get clients/leads
+  5. Pricing/Revenue Potential - Show realistic earning potential
+  6. Soft CTA - Mention ScrapeScorpion.com and encourage action
 
-Script:"""
+CONTENT REQUIREMENTS:
+- Explain the business model clearly and why it's profitable
+- Break down the "how to get started" into 3-5 super easy, actionable steps
+- Each step should be specific and easy to follow
+- Always include a section about using ScrapeScorpion.com for lead generation
+- Show realistic pricing and revenue potential
+- Use conversational, natural tone - write as if speaking directly to the camera
+- Use short sentences and paragraphs for better pacing
+- Include specific examples and numbers when possible
+- Make it feel achievable and not too complicated
+
+BUSINESS MODELS TO COVER (if topic is generic):
+- Web agencies (using CVG framework: Cursor, Vercel, GitHub)
+- AI agencies
+- AI automation companies
+- Voice agent companies
+- Website building companies
+- Service-based companies (plumbers, electricians, contractors, etc.)
+- B2B companies
+
+IMPORTANT:
+- Always mention ScrapeScorpion.com as the solution for getting leads
+- Explain how lead generation is essential for this business model
+- Make the steps super actionable - viewer should be able to start immediately
+- Keep it engaging and fast-paced
+- Format as plain text, no markdown, no timestamps (just the script text)
+
+Create the script now:"""
         
         if self.provider == "openai":
-            response = self.client.chat.completions.create(
-                model="gpt-4o-mini",  # Fast and cost-effective
-                messages=[
-                    {"role": "system", "content": "You are an expert YouTube script writer who creates engaging, conversational video scripts."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.8,
-                max_tokens=2000
-            )
-            return response.choices[0].message.content.strip()
+            # Try gpt-4o first, fallback to gpt-3.5-turbo if not available
+            models_to_try = ["gpt-4o", "gpt-3.5-turbo", "gpt-4o-mini"]
+            last_error = None
+            
+            for model in models_to_try:
+                try:
+                    response = self.client.chat.completions.create(
+                        model=model,
+                        messages=[
+                            {"role": "system", "content": "You are an expert YouTube script writer specializing in profitable business models, side hustles, and money-making opportunities. You create engaging, fast-paced scripts that explain business models clearly and always incorporate lead generation strategies using ScrapeScorpion.com. Your scripts follow the '$1,200/week side hustle' style - attention-grabbing hooks, simple step-by-step breakdowns, and actionable advice."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.8,
+                        max_tokens=3000  # Increased for longer, more detailed scripts
+                    )
+                    print(f"  ✅ Using model: {model}")
+                    return response.choices[0].message.content.strip()
+                except Exception as e:
+                    last_error = e
+                    print(f"  ⚠️  Model {model} failed: {e}")
+                    continue
+            
+            # If all models failed, raise the last error
+            raise Exception(f"All models failed. Last error: {last_error}")
         
         else:  # Claude
             response = self.client.messages.create(
                 model="claude-3-5-sonnet-20241022",
-                max_tokens=2000,
+                max_tokens=3000,  # Increased for longer, more detailed scripts
                 messages=[
                     {"role": "user", "content": prompt}
                 ]
@@ -86,40 +148,85 @@ Script:"""
         Returns:
             (title, description, tags)
         """
-        prompt = f"""Based on this YouTube video script, generate:
+        prompt = f"""You are creating YouTube title, description, and tags for a channel about profitable business models and side hustles.
 
-1. A compelling, click-worthy title (under 60 characters)
-2. A detailed description (3-4 paragraphs, 500-800 words)
-3. 10-15 relevant tags/keywords
+CHANNEL FOCUS:
+- Money-making business models
+- Side hustles and profitable businesses
+- Lead generation strategies
+- ScrapeScorpion.com (lead generation tool)
 
-Script:
+SCRIPT CONTEXT:
 {script[:2000]}  # Limit script length for context
+
+TITLE REQUIREMENTS:
+- Create a compelling, click-worthy title (under 60 characters)
+- Model after titles like: "The $X/Month [Business] That Feels Illegal (But Isn't)" or "How I Get [Result] Using [Method]"
+- Include numbers when possible (e.g., "$10K/month", "30 days", "$1,200/week")
+- Make it intriguing and promise value
+- Examples of good titles:
+  * "The $10K/Month Website Agency System That Feels Illegal (But Isn't)"
+  * "I Built a Web Agency From My Laptop Using 2 Free Tools"
+  * "How I Get Clients on Autopilot (And Build Sites for Free)"
+  * "If I Had 30 Days to Make $10K, I'd Do This"
+
+DESCRIPTION REQUIREMENTS:
+- Create a detailed description (3-4 paragraphs, 500-800 words)
+- First paragraph: Hook that summarizes the video value
+- Second paragraph: What the viewer will learn (break down the steps)
+- Third paragraph: Mention ScrapeScorpion.com and how it helps with lead generation
+- Fourth paragraph: Call-to-action (subscribe, comment, check out ScrapeScorpion.com)
+- Include relevant keywords naturally
+- Make it SEO-friendly but readable
+- Include timestamps if the script has clear sections
+
+TAGS REQUIREMENTS:
+- Generate 10-15 relevant tags/keywords
+- Include: business model name, side hustle, lead generation, ScrapeScorpion, profitable business, make money online, etc.
+- Mix of broad and specific tags
+- Include variations of the main topic
 
 Format your response as:
 TITLE: [title here]
 
 DESCRIPTION:
-[description here]
+[description here - multiple paragraphs]
 
 TAGS:
 tag1, tag2, tag3, etc.
-"""
+
+Generate now:"""
         
         if self.provider == "openai":
-            response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": "You are an expert at creating YouTube titles, descriptions, and tags that maximize engagement and SEO."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.7,
-                max_tokens=1000
-            )
-            content = response.choices[0].message.content.strip()
+            # Try gpt-4o first, fallback to gpt-3.5-turbo if not available
+            models_to_try = ["gpt-4o", "gpt-3.5-turbo", "gpt-4o-mini"]
+            last_error = None
+            
+            for model in models_to_try:
+                try:
+                    response = self.client.chat.completions.create(
+                        model=model,
+                        messages=[
+                            {"role": "system", "content": "You are an expert at creating YouTube titles, descriptions, and tags for a channel about profitable business models and side hustles. You specialize in click-worthy titles with numbers and compelling hooks, SEO-optimized descriptions that mention ScrapeScorpion.com, and relevant tags that maximize discoverability."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.7,
+                        max_tokens=1500  # Increased for more detailed descriptions
+                    )
+                    print(f"  ✅ Using model: {model}")
+                    content = response.choices[0].message.content.strip()
+                    break
+                except Exception as e:
+                    last_error = e
+                    print(f"  ⚠️  Model {model} failed: {e}")
+                    continue
+            
+            if not content:
+                raise Exception(f"All models failed. Last error: {last_error}")
         else:  # Claude
             response = self.client.messages.create(
                 model="claude-3-5-sonnet-20241022",
-                max_tokens=1000,
+                max_tokens=1500,  # Increased for more detailed descriptions
                 messages=[
                     {"role": "user", "content": prompt}
                 ]
