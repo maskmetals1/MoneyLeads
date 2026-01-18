@@ -27,7 +27,7 @@ interface WorkerStatus {
   workersRunning: boolean
   statusCounts: Record<string, number>
   pendingJobs: Array<{ id: string; topic: string; action: string }>
-  processingJobs: Array<{ id: string; topic: string; status: string }>
+  processingJobs: Array<{ id: string; topic: string; status: string; workerType?: string }>
   recentActivity: Array<{ id: string; topic: string; status: string; minutesAgo: number }>
   totalJobs: number
   timestamp: string
@@ -498,12 +498,20 @@ export default function Home() {
             </div>
             
             <div>
-              <strong>Processing:</strong> {workerStatus.processingJobs.length}
+              <strong>Processing ({workerStatus.processingJobs.length}):</strong>
               {workerStatus.processingJobs.length > 0 && (
-                <div style={{ marginTop: '5px', fontSize: '12px', maxHeight: '100px', overflowY: 'auto' }}>
+                <div style={{ marginTop: '5px', fontSize: '12px', maxHeight: '150px', overflowY: 'auto' }}>
                   {workerStatus.processingJobs.map((job, idx) => (
-                    <div key={idx} style={{ marginBottom: '2px' }}>
-                      • {job.id}... - {job.topic.substring(0, 20)} ({job.status})
+                    <div key={idx} style={{ marginBottom: '4px', padding: '4px', backgroundColor: '#fff', borderRadius: '4px' }}>
+                      <div style={{ fontWeight: '600', color: '#4a90e2' }}>
+                        {job.workerType || 'Unknown Worker'}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#666' }}>
+                        {job.id}... - {job.topic.substring(0, 25)}
+                      </div>
+                      <div style={{ fontSize: '10px', color: '#999', fontStyle: 'italic' }}>
+                        Status: {job.status.replace('_', ' ')}
+                      </div>
                     </div>
                   ))}
                 </div>

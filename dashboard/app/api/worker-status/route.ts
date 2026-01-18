@@ -37,10 +37,19 @@ export async function GET(request: NextRequest) {
           updatedAt: job.updated_at
         })
       } else if (['generating_script', 'creating_voiceover', 'rendering_video', 'uploading'].includes(status)) {
+        // Map status to worker type
+        const workerType = {
+          'generating_script': 'Script Worker',
+          'creating_voiceover': 'Voiceover Worker',
+          'rendering_video': 'Video Worker',
+          'uploading': 'YouTube Worker'
+        }[status] || 'Unknown Worker'
+        
         processingJobs.push({
           id: job.id.substring(0, 8),
           topic: job.topic || 'N/A',
           status: status,
+          workerType: workerType,
           updatedAt: job.updated_at
         })
       }
