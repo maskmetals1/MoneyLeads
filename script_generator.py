@@ -174,14 +174,22 @@ TITLE REQUIREMENTS:
   * "If I Had 30 Days to Make $10K, I'd Do This"
 
 DESCRIPTION REQUIREMENTS:
-- Create a detailed description (3-4 paragraphs, 500-800 words)
-- First paragraph: Hook that summarizes the video value
-- Second paragraph: What the viewer will learn (break down the steps)
-- Third paragraph: Mention ScrapeScorpion.com and how it helps with lead generation
-- Fourth paragraph: Call-to-action (subscribe, comment, check out ScrapeScorpion.com)
-- Include relevant keywords naturally
-- Make it SEO-friendly but readable
-- Include timestamps if the script has clear sections
+- Keep it SHORT and concise (2-3 short paragraphs, 150-250 words max)
+- First paragraph: Brief hook summarizing the video value (1-2 sentences)
+- Second paragraph: Quick overview of what they'll learn (2-3 sentences)
+- Third paragraph: MUST include link to ScrapeScorpion.com and subscribe CTA
+- Always include these exact links:
+  * ScrapeScorpion.com: https://scrapescorpion.com
+  * Subscribe: https://www.youtube.com/@MoneyLeads
+- Keep it simple, direct, and action-oriented
+- No fluff or long explanations
+
+REQUIRED DESCRIPTION FORMAT:
+Paragraph 1: [Brief hook - 1-2 sentences]
+
+Paragraph 2: [What they'll learn - 2-3 sentences]
+
+Paragraph 3: [MUST include: "Get leads with ScrapeScorpion.com: https://scrapescorpion.com" AND "Subscribe for more: https://www.youtube.com/@MoneyLeads"]
 
 TAGS REQUIREMENTS:
 - Generate 10-15 relevant tags/keywords
@@ -193,7 +201,7 @@ Format your response as:
 TITLE: [title here]
 
 DESCRIPTION:
-[description here - multiple paragraphs]
+[description here - keep it SHORT, 2-3 paragraphs max, MUST include the links]
 
 TAGS:
 tag1, tag2, tag3, etc.
