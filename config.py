@@ -33,7 +33,9 @@ YOUTUBE_REFRESH_TOKEN = os.getenv("YOUTUBE_REFRESH_TOKEN", "")  # OAuth refresh 
 # Video Processing Configuration
 VIDEO_FOLDER = Path(os.getenv("VIDEO_FOLDER", "/Users/phill/Desktop/instagram_downloads"))
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")
-EDGE_TTS_VOICE = os.getenv("EDGE_TTS_VOICE", None)  # None = auto-select
+# Handle empty string as None for auto-select
+_edge_tts_voice = os.getenv("EDGE_TTS_VOICE", None)
+EDGE_TTS_VOICE = None if _edge_tts_voice == "" or _edge_tts_voice is None else _edge_tts_voice
 
 # Worker Configuration
 WORKER_POLL_INTERVAL = int(os.getenv("WORKER_POLL_INTERVAL", "10"))  # seconds

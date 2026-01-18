@@ -73,7 +73,8 @@ def generate_voiceover(script_text: str, output_path: Path, voice: str = None) -
         import asyncio
         
         async def _generate():
-            if voice is None:
+            # Handle empty string as None (auto-select)
+            if voice is None or voice == "":
                 # Get list of voices and select a natural-sounding one
                 voices = await edge_tts.list_voices()
                 # Prefer English voices that sound natural
