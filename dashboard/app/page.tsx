@@ -46,6 +46,18 @@ export default function Home() {
   const [editingJob, setEditingJob] = useState<string | null>(null)
   const [editValues, setEditValues] = useState<{ [jobId: string]: { title?: string; description?: string; script?: string; tags?: string } }>({})
   const [saving, setSaving] = useState<Set<string>>(new Set())
+  const [showFilters, setShowFilters] = useState(false)
+  const [filters, setFilters] = useState<{
+    hasTopic?: boolean | null
+    hasTitle?: boolean | null
+    hasScript?: boolean | null
+    hasVoiceover?: boolean | null
+    hasVideo?: boolean | null
+    hasYouTube?: boolean | null
+    status?: string
+    dateFrom?: string
+    dateTo?: string
+  }>({})
 
   const loadJobs = async () => {
     try {
@@ -642,8 +654,17 @@ export default function Home() {
 
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
-          <h2 style={{ margin: 0 }}>All Video Jobs ({jobs.length})</h2>
+          <h2 style={{ margin: 0 }}>
+            All Video Jobs ({filteredJobs.length}{filteredJobs.length !== jobs.length ? ` of ${jobs.length}` : ''})
+          </h2>
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <button 
+              onClick={() => setShowFilters(!showFilters)} 
+              className="btn btn-secondary"
+              style={{ backgroundColor: showFilters ? '#4a90e2' : '', color: showFilters ? 'white' : '' }}
+            >
+              🔍 {showFilters ? 'Hide' : 'Show'} Filters
+            </button>
             <button onClick={createNewIdea} className="btn btn-primary">
               + New Idea
             </button>
@@ -718,7 +739,7 @@ export default function Home() {
               </tr>
             </thead>
             <tbody>
-              {jobs.map((job, index) => (
+              {filteredJobs.map((job, index) => (
                 <>
                   <tr 
                     key={job.id}
