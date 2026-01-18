@@ -178,6 +178,23 @@ export default function Home() {
     if (!job.youtube_url) return 'post_to_youtube'
     return null
   }
+  
+  // Check if job is already queued or processing for an action
+  const isJobQueuedOrProcessing = (job: Job, action: string): boolean => {
+    // Check if already processing (not pending or failed)
+    if (job.status !== 'pending' && job.status !== 'failed') {
+      return true
+    }
+    
+    // Check if already queued for this action
+    const metadata = job.metadata || {}
+    const currentAction = metadata.action_needed
+    if (currentAction === action) {
+      return true
+    }
+    
+    return false
+  }
 
   const toggleRowSelection = (jobId: string) => {
     const newSelected = new Set(selectedRows)
@@ -205,15 +222,49 @@ export default function Home() {
       return
     }
 
-    // Check dependencies for each job
+    // Check dependencies and if already queued/processing for each job
     const jobsToProcess = jobs.filter(j => jobIds.includes(j.id))
     const missingDeps: string[] = []
+    const alreadyQueued: string[] = []
+    const alreadyProcessing: string[] = []
     
     for (const job of jobsToProcess) {
+      // Check if already processing (not pending)
+      if (job.status !== 'pending' && job.status !== 'failed') {
+        alreadyProcessing.push(`Job ${job.id.substring(0, 8)}: already ${job.status}`)
+        continue
+      }
+      
+      // Check if already queued for this action
+      const metadata = job.metadata || {}
+      const currentAction = metadata.action_needed
+      if (currentAction === action) {
+        alreadyQueued.push(`Job ${job.id.substring(0, 8)}: already queued for ${action}`)
+        continue
+      }
+      
+      // Check dependencies
       const { canRun, missing } = checkDependencies(job, action)
       if (!canRun) {
         missingDeps.push(`Job ${job.id.substring(0, 8)}: missing ${missing.join(', ')}`)
       }
+    }
+    
+    // Show errors if any
+    if (alreadyProcessing.length > 0) {
+      setMessage({ 
+        type: 'error', 
+        text: `Jobs already processing:\n${alreadyProcessing.join('\n')}` 
+      })
+      return
+    }
+    
+    if (alreadyQueued.length > 0) {
+      setMessage({ 
+        type: 'error', 
+        text: `Jobs already queued:\n${alreadyQueued.join('\n')}\n\nPlease wait for them to complete.` 
+      })
+      return
     }
     
     if (missingDeps.length > 0) {
@@ -559,6 +610,16 @@ export default function Home() {
                       <span className={`job-status ${job.status}`}>
                         {getStatusDisplay(job.status)}
                       </span>
+                      {job.status === 'pending' && job.metadata?.action_needed && (
+                        <span style={{ 
+                          marginLeft: '8px', 
+                          fontSize: '10px', 
+                          color: '#666',
+                          fontStyle: 'italic'
+                        }}>
+                          (queued: {job.metadata.action_needed.replace('_', ' ')})
+                        </span>
+                      )}
                     </td>
                     <td className={getCellHighlight(job, 'script')}>
                       {job.script ? '✅' : '❌'}
@@ -589,7 +650,8 @@ export default function Home() {
                             onClick={() => handleAction('generate_script', job.id)}
                             className="btn btn-secondary"
                             style={{ fontSize: '11px', padding: '4px 8px' }}
-                            disabled={processing.has(job.id)}
+                            disabled={processing.has(job.id) || isJobQueuedOrProcessing(job, 'generate_script')}
+                            title={isJobQueuedOrProcessing(job, 'generate_script') ? 'Already queued or processing' : ''}
                           >
                             Script
                           </button>
@@ -599,7 +661,8 @@ export default function Home() {
                             onClick={() => handleAction('generate_voiceover', job.id)}
                             className="btn btn-secondary"
                             style={{ fontSize: '11px', padding: '4px 8px' }}
-                            disabled={processing.has(job.id)}
+                            disabled={processing.has(job.id) || isJobQueuedOrProcessing(job, 'generate_voiceover')}
+                            title={isJobQueuedOrProcessing(job, 'generate_voiceover') ? 'Already queued or processing' : ''}
                           >
                             Voice
                           </button>
@@ -609,7 +672,8 @@ export default function Home() {
                             onClick={() => handleAction('create_video', job.id)}
                             className="btn btn-secondary"
                             style={{ fontSize: '11px', padding: '4px 8px' }}
-                            disabled={processing.has(job.id)}
+                            disabled={processing.has(job.id) || isJobQueuedOrProcessing(job, 'create_video')}
+                            title={isJobQueuedOrProcessing(job, 'create_video') ? 'Already queued or processing' : ''}
                           >
                             Video
                           </button>
@@ -619,7 +683,8 @@ export default function Home() {
                             onClick={() => handleAction('post_to_youtube', job.id)}
                             className="btn btn-secondary"
                             style={{ fontSize: '11px', padding: '4px 8px', backgroundColor: '#ff0000', color: 'white' }}
-                            disabled={processing.has(job.id)}
+                            disabled={processing.has(job.id) || isJobQueuedOrProcessing(job, 'post_to_youtube')}
+                            title={isJobQueuedOrProcessing(job, 'post_to_youtube') ? 'Already queued or processing' : ''}
                           >
                             Post
                           </button>

@@ -57,13 +57,52 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check dependencies for each job
+    // Check dependencies and if already queued/processing for each job
     const missingDeps: string[] = []
+    const alreadyQueued: string[] = []
+    const alreadyProcessing: string[] = []
+    
     for (const job of jobs || []) {
+      // Check if already processing (not pending or failed)
+      if (job.status !== 'pending' && job.status !== 'failed') {
+        alreadyProcessing.push(`Job ${job.id.substring(0, 8)}: already ${job.status}`)
+        continue
+      }
+      
+      // Check if already queued for this action
+      const metadata = job.metadata || {}
+      const currentAction = metadata.action_needed
+      if (currentAction === action) {
+        alreadyQueued.push(`Job ${job.id.substring(0, 8)}: already queued for ${action}`)
+        continue
+      }
+      
+      // Check dependencies
       const { canRun, missing } = checkDependencies(job, action)
       if (!canRun) {
         missingDeps.push(`Job ${job.id.substring(0, 8)}: missing ${missing.join(', ')}`)
       }
+    }
+
+    // Return errors in priority order
+    if (alreadyProcessing.length > 0) {
+      return NextResponse.json(
+        { 
+          error: `Jobs already processing:\n${alreadyProcessing.join('\n')}`,
+          alreadyProcessing: alreadyProcessing
+        },
+        { status: 400 }
+      )
+    }
+    
+    if (alreadyQueued.length > 0) {
+      return NextResponse.json(
+        { 
+          error: `Jobs already queued:\n${alreadyQueued.join('\n')}\n\nPlease wait for them to complete.`,
+          alreadyQueued: alreadyQueued
+        },
+        { status: 400 }
+      )
     }
 
     if (missingDeps.length > 0) {
