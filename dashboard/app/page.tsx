@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import Link from 'next/link'
 
 interface Job {
   id: string
@@ -15,30 +16,20 @@ interface Job {
   youtube_url?: string
   youtube_video_id?: string
   error_message?: string
+  tags?: string[]
   created_at: string
   updated_at: string
   completed_at?: string
+  metadata?: any
 }
 
 export default function Home() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
-  const [topic, setTopic] = useState('')
+  const [expandedRow, setExpandedRow] = useState<string | null>(null)
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
-  
-  // Manual upload state
-  const [uploading, setUploading] = useState(false)
-  const [uploadFile, setUploadFile] = useState<File | null>(null)
-  const [uploadTitle, setUploadTitle] = useState('')
-  const [uploadDescription, setUploadDescription] = useState('')
-  const [uploadTags, setUploadTags] = useState('')
-  const [uploadPrivacy, setUploadPrivacy] = useState('private')
-  
-  // Database view state
-  const [showDatabaseView, setShowDatabaseView] = useState(false)
-  const [allJobs, setAllJobs] = useState<Job[]>([])
-  const [loadingDatabase, setLoadingDatabase] = useState(false)
+  const [processing, setProcessing] = useState<Set<string>>(new Set())
 
   const loadJobs = async () => {
     try {
@@ -46,7 +37,7 @@ export default function Home() {
         .from('video_jobs')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(50)
+        .limit(200)
 
       if (error) throw error
       setJobs(data || [])
@@ -61,7 +52,7 @@ export default function Home() {
   useEffect(() => {
     loadJobs()
 
-    // Set up real-time subscription
+    // Real-time subscription
     const channel = supabase
       .channel('jobs-changes')
       .on('postgres_changes', 
@@ -77,105 +68,8 @@ export default function Home() {
     }
   }, [])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!topic.trim()) {
-      setMessage({ type: 'error', text: 'Please enter a topic' })
-      return
-    }
-
-    setSubmitting(true)
-    setMessage(null)
-
-    try {
-      const { data, error } = await supabase
-        .from('video_jobs')
-        .insert([{ topic: topic.trim(), status: 'pending' }])
-        .select()
-        .single()
-
-      if (error) throw error
-
-      setMessage({ type: 'success', text: 'Job created successfully! The worker will process it shortly.' })
-      setTopic('')
-      loadJobs()
-    } catch (error: any) {
-      console.error('Error creating job:', error)
-      setMessage({ type: 'error', text: `Failed to create job: ${error.message}` })
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString()
-  }
-
-  const handleFileUpload = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!uploadFile || !uploadTitle.trim()) {
-      setMessage({ type: 'error', text: 'Please select a video file and enter a title' })
-      return
-    }
-
-    setUploading(true)
-    setMessage(null)
-
-    try {
-      const formData = new FormData()
-      formData.append('file', uploadFile)
-      formData.append('title', uploadTitle.trim())
-      formData.append('description', uploadDescription.trim())
-      formData.append('tags', uploadTags.trim())
-      formData.append('privacyStatus', uploadPrivacy)
-
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Upload failed')
-      }
-
-      setMessage({ type: 'success', text: data.message || 'Video uploaded successfully! Worker will process it shortly.' })
-      
-      // Reset form
-      setUploadFile(null)
-      setUploadTitle('')
-      setUploadDescription('')
-      setUploadTags('')
-      setUploadPrivacy('private')
-      
-      // Reset file input
-      const fileInput = document.getElementById('video-file') as HTMLInputElement
-      if (fileInput) fileInput.value = ''
-      
-      // Reload jobs
-      loadJobs()
-    } catch (error: any) {
-      setMessage({ type: 'error', text: error.message || 'Failed to upload video' })
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      if (file.size > 2 * 1024 * 1024 * 1024) { // 2GB limit
-        setMessage({ type: 'error', text: 'File size must be less than 2GB' })
-        return
-      }
-      setUploadFile(file)
-      // Auto-fill title from filename if empty
-      if (!uploadTitle.trim()) {
-        setUploadTitle(file.name.replace(/\.[^/.]+$/, ''))
-      }
-    }
   }
 
   const getStatusDisplay = (status: string) => {
@@ -191,36 +85,106 @@ export default function Home() {
     return statusMap[status] || status
   }
 
-  const loadAllDatabaseRecords = async () => {
-    setLoadingDatabase(true)
-    try {
-      const { data, error } = await supabase
-        .from('video_jobs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(100)
+  const toggleRowSelection = (jobId: string) => {
+    const newSelected = new Set(selectedRows)
+    if (newSelected.has(jobId)) {
+      newSelected.delete(jobId)
+    } else {
+      newSelected.add(jobId)
+    }
+    setSelectedRows(newSelected)
+  }
 
-      if (error) throw error
-      setAllJobs(data || [])
-    } catch (error: any) {
-      console.error('Error loading database records:', error)
-      setMessage({ type: 'error', text: `Failed to load database: ${error.message}` })
-    } finally {
-      setLoadingDatabase(false)
+  const toggleSelectAll = () => {
+    if (selectedRows.size === jobs.length) {
+      setSelectedRows(new Set())
+    } else {
+      setSelectedRows(new Set(jobs.map(j => j.id)))
     }
   }
 
-  useEffect(() => {
-    if (showDatabaseView) {
-      loadAllDatabaseRecords()
+  const handleAction = async (action: string, jobId?: string) => {
+    const jobIds = jobId ? [jobId] : Array.from(selectedRows)
+    
+    if (jobIds.length === 0) {
+      setMessage({ type: 'error', text: 'Please select at least one row' })
+      return
     }
-  }, [showDatabaseView])
+
+    setProcessing(new Set(jobIds))
+    setMessage(null)
+
+    try {
+      const response = await fetch('/api/job-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, jobIds })
+      })
+
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Action failed')
+      }
+
+      setMessage({ type: 'success', text: data.message || 'Action started successfully' })
+      loadJobs()
+    } catch (error: any) {
+      setMessage({ type: 'error', text: error.message || 'Failed to execute action' })
+    } finally {
+      setProcessing(new Set())
+    }
+  }
+
+  const createNewIdea = async () => {
+    const topic = prompt('Enter a topic/idea for the video:')
+    if (!topic) return
+
+    try {
+      const { data, error } = await supabase
+        .from('video_jobs')
+        .insert([{ 
+          topic: topic.trim(), 
+          status: 'pending',
+          metadata: { has_idea: true }
+        }])
+        .select()
+        .single()
+
+      if (error) throw error
+      setMessage({ type: 'success', text: 'New idea created!' })
+      loadJobs()
+    } catch (error: any) {
+      setMessage({ type: 'error', text: `Failed to create idea: ${error.message}` })
+    }
+  }
+
+  const truncateText = (text: string | undefined, maxLength: number = 50) => {
+    if (!text) return '-'
+    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text
+  }
+
+  if (loading) {
+    return (
+      <div className="container">
+        <div className="loading">Loading database...</div>
+      </div>
+    )
+  }
 
   return (
     <div className="container">
       <div className="header">
         <h1>YouTube Automation Dashboard</h1>
-        <p>Create and manage automated YouTube videos</p>
+        <p>Complete Database View - Spreadsheet Style</p>
+        <div style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
+          <Link href="/manual-upload" className="btn btn-secondary">
+            Manual Upload Page
+          </Link>
+          <button onClick={loadJobs} className="btn btn-secondary">
+            Refresh
+          </button>
+        </div>
       </div>
 
       {message && (
@@ -230,305 +194,226 @@ export default function Home() {
       )}
 
       <div className="card">
-        <h2>Create New Video (AI Generated)</h2>
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="topic">Video Topic</label>
-            <input
-              type="text"
-              id="topic"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              placeholder="e.g., How to start a side hustle"
-              disabled={submitting}
-            />
-          </div>
-          <button type="submit" className="btn btn-primary" disabled={submitting}>
-            {submitting ? 'Creating...' : 'Create Video Job'}
-          </button>
-        </form>
-      </div>
-
-      <div className="card">
-        <h2>Upload & Post Video</h2>
-        <p style={{ marginBottom: '20px', color: '#666', fontSize: '14px' }}>
-          Upload an existing video file to post directly to YouTube
-        </p>
-        <form onSubmit={handleFileUpload}>
-          <div className="form-group">
-            <label htmlFor="video-file">Video File</label>
-            <input
-              type="file"
-              id="video-file"
-              accept="video/*"
-              onChange={handleFileSelect}
-              disabled={uploading}
-              required
-            />
-            {uploadFile && (
-              <p style={{ marginTop: '8px', fontSize: '13px', color: '#666' }}>
-                Selected: {uploadFile.name} ({(uploadFile.size / 1024 / 1024).toFixed(2)} MB)
-              </p>
-            )}
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="upload-title">Title *</label>
-            <input
-              type="text"
-              id="upload-title"
-              value={uploadTitle}
-              onChange={(e) => setUploadTitle(e.target.value)}
-              placeholder="Video title"
-              disabled={uploading}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="upload-description">Description</label>
-            <textarea
-              id="upload-description"
-              value={uploadDescription}
-              onChange={(e) => setUploadDescription(e.target.value)}
-              placeholder="Video description"
-              disabled={uploading}
-              rows={4}
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="upload-tags">Tags (comma-separated)</label>
-            <input
-              type="text"
-              id="upload-tags"
-              value={uploadTags}
-              onChange={(e) => setUploadTags(e.target.value)}
-              placeholder="tag1, tag2, tag3"
-              disabled={uploading}
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="upload-privacy">Privacy Status</label>
-            <select
-              id="upload-privacy"
-              value={uploadPrivacy}
-              onChange={(e) => setUploadPrivacy(e.target.value)}
-              disabled={uploading}
-            >
-              <option value="private">Private</option>
-              <option value="unlisted">Unlisted</option>
-              <option value="public">Public</option>
-            </select>
-          </div>
-
-          <button type="submit" className="btn btn-primary" disabled={uploading || !uploadFile}>
-            {uploading ? 'Uploading & Posting...' : 'Upload & Post to YouTube'}
-          </button>
-        </form>
-      </div>
-
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h2 style={{ margin: 0 }}>Video Jobs</h2>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button 
-              onClick={() => setShowDatabaseView(!showDatabaseView)} 
-              className="btn btn-secondary"
-            >
-              {showDatabaseView ? 'Hide' : 'Show'} Database View
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+          <h2 style={{ margin: 0 }}>All Video Jobs ({jobs.length})</h2>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <button onClick={createNewIdea} className="btn btn-primary">
+              + New Idea
             </button>
-            <button onClick={loadJobs} className="btn btn-secondary">
-              Refresh
+            <button 
+              onClick={() => handleAction('generate_script')} 
+              className="btn btn-primary"
+              disabled={selectedRows.size === 0 || processing.size > 0}
+            >
+              Generate Script
+            </button>
+            <button 
+              onClick={() => handleAction('generate_voiceover')} 
+              className="btn btn-primary"
+              disabled={selectedRows.size === 0 || processing.size > 0}
+            >
+              Generate Voiceover
+            </button>
+            <button 
+              onClick={() => handleAction('create_video')} 
+              className="btn btn-primary"
+              disabled={selectedRows.size === 0 || processing.size > 0}
+            >
+              Create Video
+            </button>
+            <button 
+              onClick={() => handleAction('run_all')} 
+              className="btn btn-primary"
+              disabled={selectedRows.size === 0 || processing.size > 0}
+            >
+              Run All (Script → Video)
             </button>
           </div>
         </div>
 
-        {loading ? (
-          <div className="loading">Loading jobs...</div>
-        ) : jobs.length === 0 ? (
-          <div className="loading">No jobs yet. Create one above!</div>
-        ) : (
-          <div className="jobs-list">
-            {jobs.map((job) => (
-              <div key={job.id} className={`job-card ${job.status}`}>
-                <div className="job-header">
-                  <div>
-                    <div className="job-title">{job.title || job.topic}</div>
-                    <div className="job-topic">Topic: {job.topic}</div>
-                  </div>
-                  <span className={`job-status ${job.status}`}>
-                    {getStatusDisplay(job.status)}
-                  </span>
-                </div>
-
-                <div className="job-details">
-                  <p><strong>Created:</strong> {formatDate(job.created_at)}</p>
-                  {job.updated_at && (
-                    <p><strong>Last Updated:</strong> {formatDate(job.updated_at)}</p>
-                  )}
-                  {job.completed_at && (
-                    <p><strong>Completed:</strong> {formatDate(job.completed_at)}</p>
-                  )}
-                  {job.error_message && (
-                    <p style={{ color: '#ff0000' }}><strong>Error:</strong> {job.error_message}</p>
-                  )}
-                </div>
-
-                {(job.voiceover_url || job.video_url || job.youtube_url) && (
-                  <div className="job-links">
-                    {job.youtube_url && (
-                      <a href={job.youtube_url} target="_blank" rel="noopener noreferrer">
-                        📺 View on YouTube
-                      </a>
-                    )}
-                    {job.video_url && (
-                      <a href={job.video_url} target="_blank" rel="noopener noreferrer">
-                        📹 Download Video
-                      </a>
-                    )}
-                    {job.voiceover_url && (
-                      <a href={job.voiceover_url} target="_blank" rel="noopener noreferrer">
-                        🎤 Download Voiceover
-                      </a>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {showDatabaseView && (
-        <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <h2 style={{ margin: 0 }}>Complete Database View</h2>
-            <button onClick={loadAllDatabaseRecords} className="btn btn-secondary" disabled={loadingDatabase}>
-              {loadingDatabase ? 'Loading...' : 'Refresh All'}
-            </button>
-          </div>
-
-          {loadingDatabase ? (
-            <div className="loading">Loading database records...</div>
-          ) : allJobs.length === 0 ? (
-            <div className="loading">No records found in database</div>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-                <thead>
-                  <tr style={{ backgroundColor: '#f5f5f5', borderBottom: '2px solid #ddd' }}>
-                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>ID</th>
-                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Topic</th>
-                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Title</th>
-                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Status</th>
-                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Created</th>
-                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>YouTube ID</th>
-                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {allJobs.map((job, index) => (
-                    <tr 
-                      key={job.id} 
-                      style={{ 
-                        borderBottom: '1px solid #eee',
-                        backgroundColor: index % 2 === 0 ? '#fff' : '#fafafa'
-                      }}
-                    >
-                      <td style={{ padding: '12px', fontFamily: 'monospace', fontSize: '12px' }}>
-                        {job.id.substring(0, 8)}...
-                      </td>
-                      <td style={{ padding: '12px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {job.topic}
-                      </td>
-                      <td style={{ padding: '12px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {job.title || '-'}
-                      </td>
-                      <td style={{ padding: '12px' }}>
-                        <span className={`job-status ${job.status}`}>
-                          {getStatusDisplay(job.status)}
+        <div style={{ overflowX: 'auto', marginTop: '20px' }}>
+          <table className="database-table">
+            <thead>
+              <tr>
+                <th style={{ width: '40px' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={selectedRows.size === jobs.length && jobs.length > 0}
+                    onChange={toggleSelectAll}
+                  />
+                </th>
+                <th>ID</th>
+                <th>Topic/Idea</th>
+                <th>Title</th>
+                <th>Status</th>
+                <th>Script</th>
+                <th>Voiceover</th>
+                <th>Video</th>
+                <th>YouTube</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {jobs.map((job, index) => (
+                <>
+                  <tr 
+                    key={job.id}
+                    className={expandedRow === job.id ? 'expanded' : ''}
+                    style={{ 
+                      backgroundColor: index % 2 === 0 ? '#fff' : '#fafafa',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => setExpandedRow(expandedRow === job.id ? null : job.id)}
+                  >
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <input 
+                        type="checkbox" 
+                        checked={selectedRows.has(job.id)}
+                        onChange={() => toggleRowSelection(job.id)}
+                      />
+                    </td>
+                    <td style={{ fontFamily: 'monospace', fontSize: '11px' }}>
+                      {job.id.substring(0, 8)}...
+                    </td>
+                    <td>{truncateText(job.topic, 30)}</td>
+                    <td>{truncateText(job.title, 30)}</td>
+                    <td>
+                      <span className={`job-status ${job.status}`}>
+                        {getStatusDisplay(job.status)}
+                      </span>
+                    </td>
+                    <td>
+                      {job.script ? '✅' : '❌'}
+                      {job.script && (
+                        <span style={{ marginLeft: '5px', fontSize: '11px' }}>
+                          ({job.script.length} chars)
                         </span>
-                      </td>
-                      <td style={{ padding: '12px', fontSize: '12px' }}>
-                        {formatDate(job.created_at)}
-                      </td>
-                      <td style={{ padding: '12px', fontFamily: 'monospace', fontSize: '12px' }}>
-                        {job.youtube_video_id || '-'}
-                      </td>
-                      <td style={{ padding: '12px' }}>
-                        <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-                          {job.youtube_url && (
-                            <a 
-                              href={job.youtube_url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              style={{ fontSize: '12px', padding: '4px 8px', background: '#f0f0f0', borderRadius: '4px', textDecoration: 'none', color: '#333' }}
-                            >
-                              YouTube
-                            </a>
+                      )}
+                    </td>
+                    <td>{job.voiceover_url ? '✅' : '❌'}</td>
+                    <td>{job.video_url ? '✅' : '❌'}</td>
+                    <td>
+                      {job.youtube_url ? (
+                        <a href={job.youtube_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                          ✅
+                        </a>
+                      ) : '❌'}
+                    </td>
+                    <td style={{ fontSize: '12px' }}>{formatDate(job.created_at)}</td>
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                        {!job.script && (
+                          <button 
+                            onClick={() => handleAction('generate_script', job.id)}
+                            className="btn btn-secondary"
+                            style={{ fontSize: '11px', padding: '4px 8px' }}
+                            disabled={processing.has(job.id)}
+                          >
+                            Script
+                          </button>
+                        )}
+                        {job.script && !job.voiceover_url && (
+                          <button 
+                            onClick={() => handleAction('generate_voiceover', job.id)}
+                            className="btn btn-secondary"
+                            style={{ fontSize: '11px', padding: '4px 8px' }}
+                            disabled={processing.has(job.id)}
+                          >
+                            Voice
+                          </button>
+                        )}
+                        {job.voiceover_url && !job.video_url && (
+                          <button 
+                            onClick={() => handleAction('create_video', job.id)}
+                            className="btn btn-secondary"
+                            style={{ fontSize: '11px', padding: '4px 8px' }}
+                            disabled={processing.has(job.id)}
+                          >
+                            Video
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                  {expandedRow === job.id && (
+                    <tr>
+                      <td colSpan={11} style={{ backgroundColor: '#f9f9f9', padding: '20px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+                          <div>
+                            <h4>Topic/Idea</h4>
+                            <p>{job.topic}</p>
+                          </div>
+                          {job.title && (
+                            <div>
+                              <h4>Title</h4>
+                              <p>{job.title}</p>
+                            </div>
                           )}
-                          {job.video_url && (
-                            <a 
-                              href={job.video_url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              style={{ fontSize: '12px', padding: '4px 8px', background: '#f0f0f0', borderRadius: '4px', textDecoration: 'none', color: '#333' }}
-                            >
-                              Video
-                            </a>
+                          {job.description && (
+                            <div>
+                              <h4>Description</h4>
+                              <p style={{ whiteSpace: 'pre-wrap' }}>{job.description}</p>
+                            </div>
+                          )}
+                          {job.script && (
+                            <div style={{ gridColumn: '1 / -1' }}>
+                              <h4>Script</h4>
+                              <textarea 
+                                readOnly 
+                                value={job.script} 
+                                style={{ width: '100%', minHeight: '200px', padding: '10px', fontFamily: 'monospace', fontSize: '12px' }}
+                              />
+                            </div>
+                          )}
+                          {job.tags && job.tags.length > 0 && (
+                            <div>
+                              <h4>Tags</h4>
+                              <p>{job.tags.join(', ')}</p>
+                            </div>
+                          )}
+                          <div>
+                            <h4>URLs</h4>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                              {job.voiceover_url && (
+                                <a href={job.voiceover_url} target="_blank" rel="noopener noreferrer">
+                                  🎤 Voiceover
+                                </a>
+                              )}
+                              {job.video_url && (
+                                <a href={job.video_url} target="_blank" rel="noopener noreferrer">
+                                  📹 Video
+                                </a>
+                              )}
+                              {job.youtube_url && (
+                                <a href={job.youtube_url} target="_blank" rel="noopener noreferrer">
+                                  📺 YouTube
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                          <div>
+                            <h4>Metadata</h4>
+                            <pre style={{ fontSize: '11px', overflow: 'auto', maxHeight: '200px' }}>
+                              {JSON.stringify(job.metadata || {}, null, 2)}
+                            </pre>
+                          </div>
+                          {job.error_message && (
+                            <div style={{ gridColumn: '1 / -1', color: '#ff0000' }}>
+                              <h4>Error</h4>
+                              <p>{job.error_message}</p>
+                            </div>
                           )}
                         </div>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-              
-              <div style={{ marginTop: '20px', padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '6px' }}>
-                <h3 style={{ marginTop: 0, marginBottom: '10px', fontSize: '16px' }}>Database Statistics</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '15px' }}>
-                  <div>
-                    <strong>Total Jobs:</strong> {allJobs.length}
-                  </div>
-                  <div>
-                    <strong>Pending:</strong> {allJobs.filter(j => j.status === 'pending').length}
-                  </div>
-                  <div>
-                    <strong>Completed:</strong> {allJobs.filter(j => j.status === 'completed').length}
-                  </div>
-                  <div>
-                    <strong>Failed:</strong> {allJobs.filter(j => j.status === 'failed').length}
-                  </div>
-                  <div>
-                    <strong>With YouTube:</strong> {allJobs.filter(j => j.youtube_url).length}
-                  </div>
-                </div>
-              </div>
-
-              <details style={{ marginTop: '20px' }}>
-                <summary style={{ cursor: 'pointer', padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '4px', fontWeight: '500' }}>
-                  View Raw JSON Data
-                </summary>
-                <pre style={{ 
-                  marginTop: '10px', 
-                  padding: '15px', 
-                  backgroundColor: '#f5f5f5', 
-                  borderRadius: '6px', 
-                  overflow: 'auto', 
-                  maxHeight: '400px',
-                  fontSize: '12px',
-                  fontFamily: 'monospace'
-                }}>
-                  {JSON.stringify(allJobs, null, 2)}
-                </pre>
-              </details>
-            </div>
-          )}
+                  )}
+                </>
+              ))}
+            </tbody>
+          </table>
         </div>
-      )}
+      </div>
     </div>
   )
 }
-
