@@ -36,12 +36,18 @@ class ScriptGenerator:
             length: "short" (~2-3 min), "medium" (~4-5 min), "long" (~8-10 min)
         
         Returns:
-            Generated script text
+            Generated script text (between 5,200 and 10,000 characters)
         """
+        # Target character count: 5,200-10,000 characters
+        # This ensures scripts are substantial and detailed
+        min_chars = 5200
+        max_chars = 10000
+        target_chars = 7500  # Aim for middle of range
+        
         length_guidance = {
-            "short": "2-3 minutes (approximately 300-400 words)",
-            "medium": "4-5 minutes (approximately 600-800 words)",
-            "long": "8-10 minutes (approximately 1200-1500 words)"
+            "short": f"2-3 minutes (approximately {min_chars}-{int(max_chars*0.6)} characters, ~1,000-1,500 words)",
+            "medium": f"4-5 minutes (approximately {min_chars}-{max_chars} characters, ~1,300-2,000 words)",
+            "long": f"8-10 minutes (approximately {min_chars}-{max_chars} characters, ~1,300-2,000 words)"
         }
         
         title_context = ""
@@ -69,17 +75,22 @@ SCRAPE SCORPION INFORMATION:
 - Free trial available
 - Perfect for agencies, sales professionals, and service businesses
 
-SCRIPT REQUIREMENTS:
+SCRIPT REQUIREMENTS - CRITICAL LENGTH REQUIREMENT:
+- CHARACTER COUNT: The script MUST be between {min_chars} and {max_chars} characters (approximately {target_chars} characters is ideal)
+- This is a HARD REQUIREMENT - scripts shorter than {min_chars} characters or longer than {max_chars} characters will be rejected
 - Length: {length_guidance.get(length, length_guidance['medium'])}
 - Style: Model after the "$1,200/week side hustle" style - fast-paced, engaging, "feels illegal but isn't" vibe
 - Hook: Start with a compelling hook in the first 10-15 seconds that grabs attention (e.g., "Most people think making $X means... That's not true.")
 - Structure (write naturally, NO section labels):
-  1. Hook (0:00-0:30) - Attention-grabbing opening
-  2. The Model Overview (0:30-1:00) - Quick explanation of what this business is
-  3. Step-by-Step Breakdown (1:00-6:00) - 3-5 super easy steps explaining exactly how the viewer can get started
-  4. Lead Generation Section - Explain how to use ScrapeScorpion.com to get clients/leads
-  5. Pricing/Revenue Potential - Show realistic earning potential
-  6. Soft CTA - Mention ScrapeScorpion.com and encourage action
+  1. Hook (0:00-0:30) - Attention-grabbing opening (200-400 characters)
+  2. The Model Overview (0:30-1:00) - Quick explanation of what this business is (400-600 characters)
+  3. Step-by-Step Breakdown (1:00-6:00) - 3-5 super easy steps explaining exactly how the viewer can get started (3,000-6,000 characters - THIS IS THE MAIN CONTENT)
+  4. Lead Generation Section - Explain how to use ScrapeScorpion.com to get clients/leads (800-1,200 characters)
+  5. Pricing/Revenue Potential - Show realistic earning potential (600-1,000 characters)
+  6. Soft CTA - Mention ScrapeScorpion.com and encourage action (200-400 characters)
+- The Step-by-Step Breakdown should be DETAILED and COMPREHENSIVE - this is where most of the character count comes from
+- Each step should be 600-1,200 characters with specific, actionable details
+- Include examples, specific numbers, and detailed explanations
 
 CRITICAL - ABSOLUTELY NO SECTION LABELS:
 - DO NOT use [INTRO], [HOOK], [STEP-BY-STEP BREAKDOWN], [OUTRO], [PRICING/REVENUE POTENTIAL], [LEAD GENERATION SECTION], [THE MODEL OVERVIEW], [SOFT CTA], or ANY other labels in brackets
@@ -90,15 +101,18 @@ CRITICAL - ABSOLUTELY NO SECTION LABELS:
 - If you include ANY labels or brackets, the script will be rejected
 
 CONTENT REQUIREMENTS:
-- Explain the business model clearly and why it's profitable
+- Explain the business model clearly and why it's profitable (be detailed and comprehensive)
 - Break down the "how to get started" into 3-5 super easy, actionable steps
-- Each step should be specific and easy to follow
-- Always include a section about using ScrapeScorpion.com for lead generation
-- Show realistic pricing and revenue potential
+- Each step should be 600-1,200 characters with SPECIFIC, DETAILED instructions
+- Include examples, case studies, specific tools, exact processes, and real numbers
+- Always include a detailed section about using ScrapeScorpion.com for lead generation (800-1,200 characters)
+- Show realistic pricing and revenue potential with specific numbers and scenarios
 - Use conversational, natural tone - write as if speaking directly to the camera
 - Use short sentences and paragraphs for better pacing
-- Include specific examples and numbers when possible
+- Include specific examples, numbers, tool names, website names, and detailed explanations
 - Make it feel achievable and not too complicated
+- EXPAND on each point - don't be brief, be thorough and detailed
+- The script should feel comprehensive and valuable - viewers should feel they got their money's worth
 
 BUSINESS MODELS TO COVER (if topic is generic):
 - Web agencies (using CVG framework: Cursor, Vercel, GitHub)
@@ -118,7 +132,14 @@ IMPORTANT:
 - Write ONLY the words that will be spoken - no brackets, no labels, no formatting markers
 - The output should be ready to read directly as a voiceover script
 
-Create the script now (output ONLY the spoken words, no section labels):"""
+CRITICAL - CHARACTER COUNT VERIFICATION:
+- Before submitting, count the characters in your script
+- The script MUST be between {min_chars} and {max_chars} characters
+- If your script is too short, EXPAND the Step-by-Step Breakdown section with more details, examples, and specific instructions
+- If your script is too long, trim unnecessary repetition but keep all essential content
+- Aim for approximately {target_chars} characters for optimal length
+
+Create the script now (output ONLY the spoken words, no section labels, and ensure it's between {min_chars}-{max_chars} characters):"""
         
         if self.provider == "openai":
             # Try models in order: gpt-3.5-turbo (most reliable), then gpt-4o
@@ -135,12 +156,16 @@ Create the script now (output ONLY the spoken words, no section labels):"""
                             {"role": "user", "content": prompt}
                         ],
                         temperature=0.8,
-                        max_tokens=3000  # Increased for longer, more detailed scripts
+                        max_tokens=4000  # Increased for 5,200-10,000 character scripts (roughly 1,300-2,500 tokens)
                     )
                     print(f"  ✅ Using model: {model}")
                     script = response.choices[0].message.content.strip()
                     # Remove any section labels that might have been included
                     script = self._clean_script_labels(script)
+                    
+                    # Validate and regenerate if needed
+                    script = self._validate_and_fix_script_length(script, topic, title, model, min_chars, max_chars, target_chars)
+                    
                     return script
                 except Exception as e:
                     last_error = e
@@ -155,7 +180,7 @@ Create the script now (output ONLY the spoken words, no section labels):"""
         else:  # Claude
             response = self.client.messages.create(
                 model="claude-3-5-sonnet-20241022",
-                max_tokens=3000,  # Increased for longer, more detailed scripts
+                max_tokens=4000,  # Increased for 5,200-10,000 character scripts
                 messages=[
                     {"role": "user", "content": prompt}
                 ]
@@ -163,7 +188,118 @@ Create the script now (output ONLY the spoken words, no section labels):"""
             script = response.content[0].text.strip()
             # Remove any section labels that might have been included
             script = self._clean_script_labels(script)
+            
+            # Validate and regenerate if needed
+            script = self._validate_and_fix_script_length(script, topic, title, "claude-3-5-sonnet-20241022", min_chars, max_chars, target_chars)
+            
             return script
+    
+    def _validate_and_fix_script_length(self, script: str, topic: str, title: Optional[str], model: str, min_chars: int, max_chars: int, target_chars: int) -> str:
+        """
+        Validate script length and regenerate if needed to meet character requirements
+        
+        Args:
+            script: The generated script
+            topic: Original topic
+            title: Original title (if any)
+            model: Model name used
+            min_chars: Minimum character count
+            max_chars: Maximum character count
+            target_chars: Target character count
+        
+        Returns:
+            Script that meets length requirements
+        """
+        script_length = len(script)
+        
+        # If script is within acceptable range, return it
+        if min_chars <= script_length <= max_chars:
+            print(f"  ✅ Script length: {script_length} characters (target: {min_chars}-{max_chars})")
+            return script
+        
+        # If script is too short, regenerate with emphasis on expansion
+        if script_length < min_chars:
+            print(f"  ⚠️  Script too short: {script_length} characters (need {min_chars}-{max_chars}). Regenerating with expansion...")
+            
+            expansion_prompt = f"""The previous script was only {script_length} characters, but it needs to be between {min_chars} and {max_chars} characters (target: {target_chars}).
+
+TOPIC: {topic}
+TITLE: {title or 'N/A'}
+
+CURRENT SCRIPT (too short):
+{script[:500]}...
+
+REQUIREMENTS:
+- EXPAND the script significantly to reach {min_chars}-{max_chars} characters
+- Add MORE DETAILS to each step in the Step-by-Step Breakdown
+- Include MORE specific examples, tool names, website URLs, exact processes
+- Add MORE details about pricing, revenue potential, and real-world scenarios
+- Expand the ScrapeScorpion.com section with more specific use cases
+- Include MORE actionable advice and specific instructions
+- Keep the same structure and style, but make everything more comprehensive
+- DO NOT add section labels or brackets - just expand the content
+- The script should be DETAILED and THOROUGH, not brief
+
+Generate the expanded script now (must be {min_chars}-{max_chars} characters):"""
+            
+            try:
+                if self.provider == "openai":
+                    response = self.client.chat.completions.create(
+                        model=model,
+                        messages=[
+                            {"role": "system", "content": "You are an expert YouTube script writer. You create detailed, comprehensive scripts that are thorough and valuable. You expand content with specific examples, detailed instructions, and actionable advice."},
+                            {"role": "user", "content": expansion_prompt}
+                        ],
+                        temperature=0.8,
+                        max_tokens=4000
+                    )
+                    expanded_script = response.choices[0].message.content.strip()
+                else:  # Claude
+                    response = self.client.messages.create(
+                        model=model,
+                        max_tokens=4000,
+                        messages=[
+                            {"role": "user", "content": expansion_prompt}
+                        ]
+                    )
+                    expanded_script = response.content[0].text.strip()
+                
+                expanded_script = self._clean_script_labels(expanded_script)
+                expanded_length = len(expanded_script)
+                
+                if min_chars <= expanded_length <= max_chars:
+                    print(f"  ✅ Expanded script length: {expanded_length} characters")
+                    return expanded_script
+                elif expanded_length < min_chars:
+                    print(f"  ⚠️  Still too short after expansion: {expanded_length} characters. Using expanded version anyway.")
+                    return expanded_script
+                else:
+                    # Too long, trim it
+                    print(f"  ⚠️  Expanded script too long: {expanded_length} characters. Trimming...")
+                    return expanded_script[:max_chars]
+                    
+            except Exception as e:
+                print(f"  ⚠️  Failed to expand script: {e}. Using original.")
+                return script
+        
+        # If script is too long, trim it
+        if script_length > max_chars:
+            print(f"  ⚠️  Script too long: {script_length} characters (max: {max_chars}). Trimming...")
+            # Try to trim intelligently - cut from the end but preserve structure
+            trimmed = script[:max_chars]
+            # Try to end at a sentence boundary
+            last_period = trimmed.rfind('.')
+            last_exclamation = trimmed.rfind('!')
+            last_question = trimmed.rfind('?')
+            last_sentence_end = max(last_period, last_exclamation, last_question)
+            
+            if last_sentence_end > max_chars * 0.9:  # If we can find a sentence end in the last 10%
+                trimmed = trimmed[:last_sentence_end + 1]
+            
+            print(f"  ✅ Trimmed script length: {len(trimmed)} characters")
+            return trimmed
+        
+        return script
     
     def _clean_script_labels(self, script: str) -> str:
         """
@@ -432,7 +568,6 @@ Generate now:"""
         description = f"""{hook_text}
 
 Lead Generate Tool: ScrapeScorpion.com
-
 Subscribe: Youtube.com/@MoneyLeads"""
         
         # Clean up tags (remove duplicates, limit to 15)
