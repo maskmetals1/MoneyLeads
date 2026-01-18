@@ -504,6 +504,62 @@ export default function Home() {
     return text.length > maxLength ? text.substring(0, maxLength) + '...' : text
   }
 
+  const applyFilters = (jobsToFilter: Job[]): Job[] => {
+    return jobsToFilter.filter(job => {
+      // Field completion filters
+      if (filters.hasTopic !== undefined && filters.hasTopic !== null) {
+        const hasTopic = !!job.topic
+        if (filters.hasTopic !== hasTopic) return false
+      }
+      if (filters.hasTitle !== undefined && filters.hasTitle !== null) {
+        const hasTitle = !!job.title
+        if (filters.hasTitle !== hasTitle) return false
+      }
+      if (filters.hasScript !== undefined && filters.hasScript !== null) {
+        const hasScript = !!job.script
+        if (filters.hasScript !== hasScript) return false
+      }
+      if (filters.hasVoiceover !== undefined && filters.hasVoiceover !== null) {
+        const hasVoiceover = !!job.voiceover_url
+        if (filters.hasVoiceover !== hasVoiceover) return false
+      }
+      if (filters.hasVideo !== undefined && filters.hasVideo !== null) {
+        const hasVideo = !!job.video_url
+        if (filters.hasVideo !== hasVideo) return false
+      }
+      if (filters.hasYouTube !== undefined && filters.hasYouTube !== null) {
+        const hasYouTube = !!job.youtube_url
+        if (filters.hasYouTube !== hasYouTube) return false
+      }
+
+      // Status filter
+      if (filters.status && filters.status !== 'all') {
+        if (job.status !== filters.status) return false
+      }
+
+      // Date filters
+      if (filters.dateFrom) {
+        const jobDate = new Date(job.created_at)
+        const fromDate = new Date(filters.dateFrom)
+        if (jobDate < fromDate) return false
+      }
+      if (filters.dateTo) {
+        const jobDate = new Date(job.created_at)
+        const toDate = new Date(filters.dateTo)
+        toDate.setHours(23, 59, 59, 999) // End of day
+        if (jobDate > toDate) return false
+      }
+
+      return true
+    })
+  }
+
+  const clearFilters = () => {
+    setFilters({})
+  }
+
+  const filteredJobs = applyFilters(jobs)
+
   if (loading) {
     return (
       <div className="container">
