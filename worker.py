@@ -58,12 +58,15 @@ class Worker:
         topic = job["topic"]
         metadata = job.get("metadata", {})
         is_manual_upload = metadata.get("manual_upload", False)
+        action_needed = metadata.get("action_needed")
         
         print(f"\n{'='*60}")
         print(f"📹 Processing Job: {job_id}")
         print(f"📝 Topic: {topic}")
         if is_manual_upload:
             print(f"📤 Type: Manual Upload")
+        if action_needed:
+            print(f"🎯 Action: {action_needed}")
         print(f"{'='*60}")
         
         try:
@@ -133,59 +136,109 @@ class Worker:
                 
                 return True
             
+            # Check what action is needed
+            script = job.get("script")
+            voiceover_url = job.get("voiceover_url")
+            video_url = job.get("video_url")
+            
+            # Determine starting point based on action_needed or current state
+            start_from_script = action_needed == "generate_script" or (not script and not action_needed)
+            start_from_voiceover = action_needed == "generate_voiceover" or (script and not voiceover_url and not action_needed)
+            start_from_video = action_needed == "create_video" or (voiceover_url and not video_url and not action_needed)
+            run_all = action_needed == "run_all"
+            
             # Normal flow - generate script, create video
-            # Step 1: Generate script, title, description
-            print(f"\n[1/5] Generating script and metadata...")
-            self.supabase.update_job_status(job_id, "generating_script")
+            if start_from_script or run_all:
+                # Step 1: Generate script, title, description
+                print(f"\n[1/5] Generating script and metadata...")
+                self.supabase.update_job_status(job_id, "generating_script")
             
-            script = self.script_generator.generate_script(topic)
-            title, description, tags = self.script_generator.generate_title_and_description(script)
+                script = self.script_generator.generate_script(topic)
+                title, description, tags = self.script_generator.generate_title_and_description(script)
+                
+                # Save script, title, description to database
+                self.supabase.update_job_script(job_id, script, title, description, tags)
+                print(f"  ✅ Script generated ({len(script)} chars)")
+                print(f"  ✅ Title: {title}")
+            else:
+                # Use existing script
+                script = job.get("script")
+                title = job.get("title", topic)
+                description = job.get("description", "")
+                tags = job.get("tags", [])
+                if not script:
+                    raise Exception("Script required but not found")
+                print(f"  ✅ Using existing script ({len(script)} chars)")
             
-            # Save script, title, description to database
-            self.supabase.update_job_script(job_id, script, title, description, tags)
-            print(f"  ✅ Script generated ({len(script)} chars)")
-            print(f"  ✅ Title: {title}")
+            if start_from_voiceover or (run_all and not voiceover_url):
+                # Step 2: Generate voiceover and render video
+                print(f"\n[2/5] Generating voiceover and rendering video...")
+                self.supabase.update_job_status(job_id, "creating_voiceover")
             
-            # Step 2: Generate voiceover and render video
-            print(f"\n[2/5] Generating voiceover and rendering video...")
-            self.supabase.update_job_status(job_id, "creating_voiceover")
+                # Create temp directory for this job
+                temp_dir = Path(f"/tmp/youtube_automation_{job_id}")
+                temp_dir.mkdir(parents=True, exist_ok=True)
+                
+                video_path = temp_dir / "video.mp4"
+                success, duration = self.video_processor.process_video(script, video_path)
+                
+                if not success:
+                    raise Exception("Video processing failed")
+                
+                # Get voiceover path and copy to our temp dir (processor may clean up its temp dir)
+                voiceover_path = self.video_processor.get_voiceover_path()
+                if voiceover_path and voiceover_path.exists():
+                    # Copy to worker's temp dir to ensure it persists
+                    import shutil
+                    worker_voiceover_path = temp_dir / "voiceover.mp3"
+                    shutil.copy2(voiceover_path, worker_voiceover_path)
+                    voiceover_path = worker_voiceover_path
+            else:
+                # Use existing voiceover or skip to video
+                temp_dir = Path(f"/tmp/youtube_automation_{job_id}")
+                temp_dir.mkdir(parents=True, exist_ok=True)
+                
+                if voiceover_url:
+                    # Download existing voiceover
+                    import requests
+                    voiceover_path = temp_dir / "voiceover.mp3"
+                    response = requests.get(voiceover_url, stream=True)
+                    response.raise_for_status()
+                    with open(voiceover_path, 'wb') as f:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            f.write(chunk)
+                    print(f"  ✅ Using existing voiceover")
+                else:
+                    raise Exception("Voiceover required but not found")
             
-            # Create temp directory for this job
-            temp_dir = Path(f"/tmp/youtube_automation_{job_id}")
-            temp_dir.mkdir(parents=True, exist_ok=True)
+            if start_from_video or (run_all and not video_url):
             
-            video_path = temp_dir / "video.mp4"
-            success, duration = self.video_processor.process_video(script, video_path)
+                # Step 3: Upload files to Supabase Storage
+                print(f"\n[3/5] Uploading files to storage...")
+                self.supabase.update_job_status(job_id, "rendering_video")
+                
+                if voiceover_path and voiceover_path.exists() and not job.get("voiceover_url"):
+                    voiceover_url = self.supabase.upload_voiceover(voiceover_path, job_id)
+                    print(f"  ✅ Voiceover uploaded: {voiceover_url}")
+                else:
+                    voiceover_url = job.get("voiceover_url")
+                
+                if not video_path.exists():
+                    raise Exception("Video file not found after processing")
+                
+                video_url = self.supabase.upload_video(video_path, job_id)
+                print(f"  ✅ Video uploaded: {video_url}")
+            else:
+                # Use existing video
+                video_url = job.get("video_url")
+                if not video_url:
+                    raise Exception("Video required but not found")
+                print(f"  ✅ Using existing video")
             
-            if not success:
-                raise Exception("Video processing failed")
-            
-            # Get voiceover path and copy to our temp dir (processor may clean up its temp dir)
-            voiceover_path = self.video_processor.get_voiceover_path()
-            if voiceover_path and voiceover_path.exists():
-                # Copy to worker's temp dir to ensure it persists
-                import shutil
-                worker_voiceover_path = temp_dir / "voiceover.mp3"
-                shutil.copy2(voiceover_path, worker_voiceover_path)
-                voiceover_path = worker_voiceover_path
-            
-            # Step 3: Upload files to Supabase Storage
-            print(f"\n[3/5] Uploading files to storage...")
-            self.supabase.update_job_status(job_id, "rendering_video")
-            
-            if voiceover_path and voiceover_path.exists():
-                voiceover_url = self.supabase.upload_voiceover(voiceover_path, job_id)
-                print(f"  ✅ Voiceover uploaded: {voiceover_url}")
-            
-            if not video_path.exists():
-                raise Exception("Video file not found after processing")
-            
-            video_url = self.supabase.upload_video(video_path, job_id)
-            print(f"  ✅ Video uploaded: {video_url}")
-            
-            # Step 4: Upload to YouTube
-            print(f"\n[4/5] Uploading to YouTube...")
-            self.supabase.update_job_status(job_id, "uploading")
+            # Step 4: Upload to YouTube (if not already uploaded)
+            if not job.get("youtube_url"):
+                print(f"\n[4/5] Uploading to YouTube...")
+                self.supabase.update_job_status(job_id, "uploading")
             
             youtube_result = self.youtube_uploader.upload_video(
                 video_path=video_path,
