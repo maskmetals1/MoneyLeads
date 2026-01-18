@@ -392,55 +392,15 @@ def render_final_video(
             str(output_path)
         ]
         
-        # Run ffmpeg with proper error handling for broken pipes
-        try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                stdin=subprocess.DEVNULL,  # Prevent stdin issues
-                stderr=subprocess.PIPE,    # Capture stderr separately
-                stdout=subprocess.PIPE     # Capture stdout separately
-            )
-        except BrokenPipeError as e:
-            print(f"  ⚠️  Broken pipe error (retrying...): {e}")
-            # Retry once
-            try:
-                result = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    stdin=subprocess.DEVNULL,
-                    stderr=subprocess.PIPE,
-                    stdout=subprocess.PIPE
-                )
-            except Exception as retry_error:
-                print(f"  ❌ Retry also failed: {retry_error}")
-                if temp_video.exists():
-                    temp_video.unlink()
-                return False
-        except OSError as e:
-            if e.errno == 32:  # Broken pipe
-                print(f"  ⚠️  Broken pipe error (retrying...): {e}")
-                try:
-                    result = subprocess.run(
-                        cmd,
-                        capture_output=True,
-                        text=True,
-                        stdin=subprocess.DEVNULL,
-                        stderr=subprocess.PIPE,
-                        stdout=subprocess.PIPE
-                    )
-                except Exception as retry_error:
-                    print(f"  ❌ Retry also failed: {retry_error}")
-                    if temp_video.exists():
-                        temp_video.unlink()
-                    return False
-            else:
-                print(f"  ❌ OS Error: {e}")
-                if temp_video.exists():
-                    temp_video.unlink()
-                return False
+        # Run ffmpeg (single attempt, no retries)
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,  # Prevent stdin issues
+            stderr=subprocess.PIPE,    # Capture stderr separately
+            stdout=subprocess.PIPE     # Capture stdout separately
+        )
         
         # Cleanup temp file
         if temp_video.exists():
