@@ -336,6 +336,84 @@ export default function Home() {
     }
   }
 
+  const handleEditChange = (jobId: string, field: 'title' | 'description' | 'script' | 'tags', value: string) => {
+    setEditValues(prev => ({
+      ...prev,
+      [jobId]: {
+        ...prev[jobId],
+        [field]: value
+      }
+    }))
+  }
+
+  const startEditing = (jobId: string) => {
+    const job = jobs.find(j => j.id === jobId)
+    if (job) {
+      setEditValues({
+        [jobId]: {
+          title: job.title || '',
+          description: job.description || '',
+          script: job.script || '',
+          tags: job.tags ? job.tags.join(', ') : ''
+        }
+      })
+      setEditingJob(jobId)
+    }
+  }
+
+  const cancelEditing = (jobId: string) => {
+    setEditingJob(null)
+    setEditValues(prev => {
+      const newValues = { ...prev }
+      delete newValues[jobId]
+      return newValues
+    })
+  }
+
+  const saveJobEdits = async (jobId: string) => {
+    const edits = editValues[jobId]
+    if (!edits) return
+
+    setSaving(prev => new Set(prev).add(jobId))
+
+    try {
+      const response = await fetch('/api/update-job', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobId,
+          title: edits.title,
+          description: edits.description,
+          script: edits.script,
+          tags: edits.tags
+        })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to save changes')
+      }
+
+      setMessage({ type: 'success', text: 'Changes saved successfully' })
+      setEditingJob(null)
+      setEditValues(prev => {
+        const newValues = { ...prev }
+        delete newValues[jobId]
+        return newValues
+      })
+      loadJobs()
+    } catch (error: any) {
+      setMessage({ type: 'error', text: error.message || 'Failed to save changes' })
+    } finally {
+      setSaving(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(jobId)
+        return newSet
+      })
+    }
+  }
+
   const createNewIdea = async () => {
     const topic = prompt('Enter a topic/idea for the video:')
     if (!topic) return
