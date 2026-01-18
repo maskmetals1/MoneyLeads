@@ -71,34 +71,11 @@ class VideoWorker(BaseWorker):
             
             video_path = temp_dir / "video.mp4"
             
-            # Process video with retry logic for broken pipe errors
-            max_retries = 2
-            success = False
-            duration = None
-            
-            for attempt in range(max_retries):
-                try:
-                    success, duration = self.video_processor.process_video(script, video_path)
-                    if success and video_path.exists():
-                        break
-                    elif attempt < max_retries - 1:
-                        print(f"  ⚠️  Attempt {attempt + 1} failed, retrying...")
-                        time.sleep(2)  # Brief pause before retry
-                except BrokenPipeError as e:
-                    if attempt < max_retries - 1:
-                        print(f"  ⚠️  Broken pipe error (attempt {attempt + 1}), retrying...: {e}")
-                        time.sleep(2)
-                    else:
-                        raise
-                except OSError as e:
-                    if e.errno == 32 and attempt < max_retries - 1:  # Broken pipe
-                        print(f"  ⚠️  Broken pipe error (attempt {attempt + 1}), retrying...: {e}")
-                        time.sleep(2)
-                    else:
-                        raise
+            # Process video (single attempt, no retries)
+            success, duration = self.video_processor.process_video(script, video_path)
             
             if not success:
-                raise Exception("Video processing failed after retries")
+                raise Exception("Video processing failed")
             
             if not video_path.exists():
                 raise Exception("Video file not found after processing")
