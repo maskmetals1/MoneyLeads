@@ -81,7 +81,13 @@ SCRIPT REQUIREMENTS:
   5. Pricing/Revenue Potential - Show realistic earning potential
   6. Soft CTA - Mention ScrapeScorpion.com and encourage action
 
-CRITICAL: DO NOT include section labels like [INTRO], [STEP-BY-STEP BREAKDOWN], [OUTRO], [PRICING/REVENUE POTENTIAL], [LEAD GENERATION SECTION], [THE MODEL OVERVIEW] in your output. Write the script as if you're speaking directly to the camera - just the words that will be read aloud, nothing else.
+CRITICAL - ABSOLUTELY NO SECTION LABELS:
+- DO NOT use [INTRO], [HOOK], [STEP-BY-STEP BREAKDOWN], [OUTRO], [PRICING/REVENUE POTENTIAL], [LEAD GENERATION SECTION], [THE MODEL OVERVIEW], [SOFT CTA], or ANY other labels in brackets
+- DO NOT use any formatting markers, timestamps, or structural labels
+- Write ONLY the spoken words - as if you're talking directly to the camera
+- Start immediately with the hook sentence - no labels, no brackets, nothing
+- The output must be pure script text that can be read directly as a voiceover
+- If you include ANY labels or brackets, the script will be rejected
 
 CONTENT REQUIREMENTS:
 - Explain the business model clearly and why it's profitable
@@ -161,23 +167,48 @@ Create the script now (output ONLY the spoken words, no section labels):"""
     
     def _clean_script_labels(self, script: str) -> str:
         """
-        Remove section labels like [INTRO], [STEP-BY-STEP BREAKDOWN], etc. from script
+        Aggressively remove ALL section labels and formatting from script
         """
         import re
-        # Remove lines that are just section labels in brackets
         lines = script.split('\n')
         cleaned_lines = []
         
         for line in lines:
-            # Skip lines that are just section labels (e.g., [INTRO], [OUTRO], etc.)
+            original_line = line
+            # Remove any lines that are ONLY section labels in brackets
             if re.match(r'^\s*\[.*\]\s*$', line):
                 continue
-            # Remove section labels that appear at the start of a line followed by text
-            line = re.sub(r'^\s*\[.*?\]\s*\n?', '', line)
-            if line.strip():  # Only add non-empty lines
-                cleaned_lines.append(line)
+            
+            # Remove section labels at the start of lines (more aggressive)
+            line = re.sub(r'^\s*\[.*?\]\s*', '', line)
+            
+            # Remove any remaining brackets with text inside (catch any missed labels)
+            line = re.sub(r'\[.*?\]', '', line)
+            
+            # Remove common label patterns
+            label_patterns = [
+                r'\[INTRO\]', r'\[HOOK\]', r'\[OUTRO\]',
+                r'\[STEP-BY-STEP BREAKDOWN\]', r'\[STEP BY STEP\]',
+                r'\[PRICING/REVENUE POTENTIAL\]', r'\[PRICING\]',
+                r'\[LEAD GENERATION SECTION\]', r'\[LEAD GENERATION\]',
+                r'\[THE MODEL OVERVIEW\]', r'\[MODEL OVERVIEW\]',
+                r'\[SOFT CTA\]', r'\[CTA\]'
+            ]
+            for pattern in label_patterns:
+                line = re.sub(pattern, '', line, flags=re.IGNORECASE)
+            
+            # Only add non-empty lines
+            if line.strip():
+                cleaned_lines.append(line.strip())
         
-        return '\n'.join(cleaned_lines).strip()
+        result = '\n'.join(cleaned_lines).strip()
+        
+        # Final check - if result still contains brackets, remove them
+        if '[' in result or ']' in result:
+            result = re.sub(r'\[.*?\]', '', result)
+            result = '\n'.join([l.strip() for l in result.split('\n') if l.strip()])
+        
+        return result
     
     def generate_title_and_description(self, topic: str) -> Tuple[str, str, List[str]]:
         """
@@ -210,11 +241,14 @@ TITLE REQUIREMENTS:
   * "How I Get Clients on Autopilot (And Build Sites for Free)"
   * "If I Had 30 Days to Make $10K, I'd Do This"
 
-DESCRIPTION REQUIREMENTS:
-- Keep it SUPER SHORT - use the exact template format below
-- Follow this template EXACTLY (copy this format precisely):
+DESCRIPTION REQUIREMENTS - CRITICAL:
+- You MUST use this EXACT template format - copy it precisely, character for character
+- DO NOT modify the format, labels, or structure in any way
+- DO NOT add extra text, paragraphs, or content beyond what's specified
 
-[HOOK, keep it very short. like two sentences] [Your hook text here - two sentences about what they'll learn]
+EXACT TEMPLATE TO USE (copy this exactly):
+
+[HOOK, keep it very short. like two sentences] [Write exactly two sentences about what they'll learn in this video]
 
 [Always include these in this exact format. nothing more or less:]
 
@@ -222,11 +256,14 @@ Lead Generate Tool: ScrapeScorpion.com
 
 Subscribe: Youtube.com/@MoneyLeads
 
-- The hook should be exactly two sentences
-- Use the exact format shown above with the brackets and labels
-- Include blank lines as shown
-- Tags will be added separately, don't include them in description
-- No extra text, no modifications to the format
+CRITICAL RULES:
+1. The hook must be exactly two sentences (no more, no less)
+2. Use the EXACT label format: [HOOK, keep it very short. like two sentences]
+3. Use the EXACT label format: [Always include these in this exact format. nothing more or less:]
+4. Include the blank lines exactly as shown (one blank line after hook, one after the label)
+5. DO NOT add any other text, paragraphs, or content
+6. Tags will be added separately - DO NOT include them in the description
+7. If you deviate from this format, the description will be rejected and reformatted
 
 TAGS REQUIREMENTS:
 - Generate 10-15 relevant tags/keywords
@@ -311,11 +348,16 @@ Generate now:"""
         
         description = "\n\n".join(description_lines).strip()
         
-        # Format description according to exact template
+        # Always reformat description to ensure exact template format
         description_lower = description.lower()
-        has_correct_format = "[hook, keep it very short" in description_lower and "[always include these in this exact format" in description_lower
+        has_correct_format = (
+            "[hook, keep it very short" in description_lower and 
+            "[always include these in this exact format" in description_lower and
+            "lead generate tool: scrapescorpion.com" in description_lower and
+            "subscribe: youtube.com/@moneyleads" in description_lower
+        )
         
-        # If description doesn't follow exact template, reformat it
+        # Always reformat to ensure exact template (even if close, enforce exact format)
         if not has_correct_format:
             # Extract hook text from description (first 1-2 sentences that aren't labels)
             hook_text = ""
