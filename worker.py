@@ -239,23 +239,37 @@ class Worker:
             if not job.get("youtube_url"):
                 print(f"\n[4/5] Uploading to YouTube...")
                 self.supabase.update_job_status(job_id, "uploading")
-            
-            youtube_result = self.youtube_uploader.upload_video(
-                video_path=video_path,
-                title=title,
-                description=description,
-                tags=tags,
-                privacy_status="private"  # Start as private, can change later
-            )
-            
-            youtube_video_id = youtube_result["video_id"]
-            youtube_url = youtube_result["video_url"]
-            
-            # Save YouTube video info
-            self.supabase.save_youtube_video(job_id, youtube_video_id, title, description)
-            self.supabase.update_job_with_youtube(job_id, youtube_video_id, youtube_url)
-            
-            print(f"  ✅ Uploaded to YouTube: {youtube_url}")
+                
+                # Download video if needed (if we're using existing video)
+                if not video_path.exists() and video_url:
+                    import requests
+                    print(f"  📥 Downloading video from storage...")
+                    response = requests.get(video_url, stream=True)
+                    response.raise_for_status()
+                    with open(video_path, 'wb') as f:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            f.write(chunk)
+                    print(f"  ✅ Video downloaded")
+                
+                youtube_result = self.youtube_uploader.upload_video(
+                    video_path=video_path,
+                    title=title,
+                    description=description,
+                    tags=tags if isinstance(tags, list) else [],
+                    privacy_status="private"  # Start as private, can change later
+                )
+                
+                youtube_video_id = youtube_result["video_id"]
+                youtube_url = youtube_result["video_url"]
+                
+                # Save YouTube video info
+                self.supabase.save_youtube_video(job_id, youtube_video_id, title, description)
+                self.supabase.update_job_with_youtube(job_id, youtube_video_id, youtube_url)
+                
+                print(f"  ✅ Uploaded to YouTube: {youtube_url}")
+            else:
+                print(f"  ✅ Video already uploaded to YouTube")
+                youtube_url = job.get("youtube_url")
             
             # Step 5: Cleanup
             print(f"\n[5/5] Cleaning up...")
