@@ -771,6 +771,189 @@ export default function Home() {
           </div>
         </div>
 
+        {showFilters && (
+          <div style={{ 
+            marginBottom: '20px', 
+            padding: '15px', 
+            backgroundColor: '#f9f9f9', 
+            borderRadius: '8px',
+            border: '1px solid #ddd'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+              <h3 style={{ margin: 0, fontSize: '16px' }}>Filters</h3>
+              <button onClick={clearFilters} className="btn btn-secondary" style={{ fontSize: '12px', padding: '4px 8px' }}>
+                Clear All
+              </button>
+            </div>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
+              {/* Field Completion Filters */}
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: '600' }}>
+                  Topic/Idea
+                </label>
+                <select
+                  value={filters.hasTopic === undefined ? 'all' : filters.hasTopic ? 'yes' : 'no'}
+                  onChange={(e) => setFilters(prev => ({ 
+                    ...prev, 
+                    hasTopic: e.target.value === 'all' ? undefined : e.target.value === 'yes' 
+                  }))}
+                  style={{ width: '100%', padding: '6px', fontSize: '13px', border: '1px solid #ddd', borderRadius: '4px' }}
+                >
+                  <option value="all">All</option>
+                  <option value="yes">Has Topic</option>
+                  <option value="no">No Topic</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: '600' }}>
+                  Title
+                </label>
+                <select
+                  value={filters.hasTitle === undefined ? 'all' : filters.hasTitle ? 'yes' : 'no'}
+                  onChange={(e) => setFilters(prev => ({ 
+                    ...prev, 
+                    hasTitle: e.target.value === 'all' ? undefined : e.target.value === 'yes' 
+                  }))}
+                  style={{ width: '100%', padding: '6px', fontSize: '13px', border: '1px solid #ddd', borderRadius: '4px' }}
+                >
+                  <option value="all">All</option>
+                  <option value="yes">Has Title</option>
+                  <option value="no">No Title</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: '600' }}>
+                  Script
+                </label>
+                <select
+                  value={filters.hasScript === undefined ? 'all' : filters.hasScript ? 'yes' : 'no'}
+                  onChange={(e) => setFilters(prev => ({ 
+                    ...prev, 
+                    hasScript: e.target.value === 'all' ? undefined : e.target.value === 'yes' 
+                  }))}
+                  style={{ width: '100%', padding: '6px', fontSize: '13px', border: '1px solid #ddd', borderRadius: '4px' }}
+                >
+                  <option value="all">All</option>
+                  <option value="yes">Has Script</option>
+                  <option value="no">No Script</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: '600' }}>
+                  Voiceover
+                </label>
+                <select
+                  value={filters.hasVoiceover === undefined ? 'all' : filters.hasVoiceover ? 'yes' : 'no'}
+                  onChange={(e) => setFilters(prev => ({ 
+                    ...prev, 
+                    hasVoiceover: e.target.value === 'all' ? undefined : e.target.value === 'yes' 
+                  }))}
+                  style={{ width: '100%', padding: '6px', fontSize: '13px', border: '1px solid #ddd', borderRadius: '4px' }}
+                >
+                  <option value="all">All</option>
+                  <option value="yes">Has Voiceover</option>
+                  <option value="no">No Voiceover</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: '600' }}>
+                  Video
+                </label>
+                <select
+                  value={filters.hasVideo === undefined ? 'all' : filters.hasVideo ? 'yes' : 'no'}
+                  onChange={(e) => setFilters(prev => ({ 
+                    ...prev, 
+                    hasVideo: e.target.value === 'all' ? undefined : e.target.value === 'yes' 
+                  }))}
+                  style={{ width: '100%', padding: '6px', fontSize: '13px', border: '1px solid #ddd', borderRadius: '4px' }}
+                >
+                  <option value="all">All</option>
+                  <option value="yes">Has Video</option>
+                  <option value="no">No Video</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: '600' }}>
+                  YouTube
+                </label>
+                <select
+                  value={filters.hasYouTube === undefined ? 'all' : filters.hasYouTube ? 'yes' : 'no'}
+                  onChange={(e) => setFilters(prev => ({ 
+                    ...prev, 
+                    hasYouTube: e.target.value === 'all' ? undefined : e.target.value === 'yes' 
+                  }))}
+                  style={{ width: '100%', padding: '6px', fontSize: '13px', border: '1px solid #ddd', borderRadius: '4px' }}
+                >
+                  <option value="all">All</option>
+                  <option value="yes">Has YouTube</option>
+                  <option value="no">No YouTube</option>
+                </select>
+              </div>
+
+              {/* Status Filter */}
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: '600' }}>
+                  Status
+                </label>
+                <select
+                  value={filters.status || 'all'}
+                  onChange={(e) => setFilters(prev => ({ 
+                    ...prev, 
+                    status: e.target.value === 'all' ? undefined : e.target.value 
+                  }))}
+                  style={{ width: '100%', padding: '6px', fontSize: '13px', border: '1px solid #ddd', borderRadius: '4px' }}
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="generating_script">Generating Script</option>
+                  <option value="creating_voiceover">Creating Voiceover</option>
+                  <option value="rendering_video">Rendering Video</option>
+                  <option value="uploading">Uploading</option>
+                  <option value="completed">Completed</option>
+                  <option value="failed">Failed</option>
+                </select>
+              </div>
+
+              {/* Date Filters */}
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: '600' }}>
+                  Date From
+                </label>
+                <input
+                  type="date"
+                  value={filters.dateFrom || ''}
+                  onChange={(e) => setFilters(prev => ({ 
+                    ...prev, 
+                    dateFrom: e.target.value || undefined 
+                  }))}
+                  style={{ width: '100%', padding: '6px', fontSize: '13px', border: '1px solid #ddd', borderRadius: '4px' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: '600' }}>
+                  Date To
+                </label>
+                <input
+                  type="date"
+                  value={filters.dateTo || ''}
+                  onChange={(e) => setFilters(prev => ({ 
+                    ...prev, 
+                    dateTo: e.target.value || undefined 
+                  }))}
+                  style={{ width: '100%', padding: '6px', fontSize: '13px', border: '1px solid #ddd', borderRadius: '4px' }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
         <div style={{ overflowX: 'auto', marginTop: '20px' }}>
           <table className="database-table">
             <thead>
