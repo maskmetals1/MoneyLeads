@@ -63,9 +63,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Determine if workers are likely running based on activity
+    // Workers are running if:
+    // 1. There are jobs currently processing
+    // 2. There's recent activity (jobs updated in last 10 min)
+    // 3. There are pending jobs that need processing (indicates workers should be active)
     const hasRecentActivity = recentActivity.length > 0
     const hasProcessingJobs = processingJobs.length > 0
-    const workersLikelyRunning = hasRecentActivity || hasProcessingJobs
+    const hasPendingJobs = pendingJobs.length > 0
+    const workersLikelyRunning = hasRecentActivity || hasProcessingJobs || hasPendingJobs
 
     return NextResponse.json({
       workersRunning: workersLikelyRunning,

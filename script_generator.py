@@ -205,17 +205,21 @@ TITLE REQUIREMENTS:
 
 DESCRIPTION REQUIREMENTS:
 - Keep it SUPER SHORT - use the exact template format below
-- Follow this template EXACTLY:
+- Follow this template EXACTLY (copy this format precisely):
 
-[HOOK] [One sentence hook about the video topic - what they'll learn]
+[HOOK, keep it very short. like two sentences] [Your hook text here - two sentences about what they'll learn]
 
-[Always include these:]
+[Always include these in this exact format. nothing more or less:]
+
 Lead Generate Tool: ScrapeScorpion.com
+
 Subscribe: Youtube.com/@MoneyLeads
 
-- Then add tags below (tags will be added separately, don't include them in description)
-- Keep it minimal - just the hook and the two required links
-- No paragraphs, no extra text, just the template format
+- The hook should be exactly two sentences
+- Use the exact format shown above with the brackets and labels
+- Include blank lines as shown
+- Tags will be added separately, don't include them in description
+- No extra text, no modifications to the format
 
 TAGS REQUIREMENTS:
 - Generate 10-15 relevant tags/keywords
@@ -300,26 +304,37 @@ Generate now:"""
         
         description = "\n\n".join(description_lines).strip()
         
-        # Format description according to template if not already formatted
+        # Format description according to exact template
         description_lower = description.lower()
-        has_hook = "[hook]" in description_lower
-        has_scrapescorpion = "scrapescorpion.com" in description_lower
-        has_subscribe = "youtube.com/@moneyleads" in description_lower or "@moneyleads" in description_lower
+        has_correct_format = "[hook, keep it very short" in description_lower and "[always include these in this exact format" in description_lower
         
-        # If description doesn't follow template, reformat it
-        if not has_hook or not has_scrapescorpion or not has_subscribe:
-            # Extract hook from description or use a default
-            hook_line = ""
+        # If description doesn't follow exact template, reformat it
+        if not has_correct_format:
+            # Extract hook text from description (first 1-2 sentences that aren't labels)
+            hook_text = ""
             for line in description_lines:
-                if line.strip() and not line.strip().startswith("["):
-                    hook_line = line.strip()
-                    break
+                line_stripped = line.strip()
+                # Skip label lines and empty lines
+                if line_stripped and not line_stripped.startswith("[") and "scrapescorpion" not in line_stripped.lower() and "subscribe" not in line_stripped.lower() and "youtube" not in line_stripped.lower():
+                    if hook_text:
+                        hook_text += " " + line_stripped
+                    else:
+                        hook_text = line_stripped
+                    # Limit to approximately two sentences
+                    if hook_text.count('.') >= 2:
+                        break
             
-            # Rebuild description in template format
-            description = f"""[HOOK] {hook_line if hook_line else "Looking to dive into the world of profitable business models and side hustles? In this video, we'll uncover the secrets of starting your own business."}
+            # If no hook found, use default
+            if not hook_text:
+                hook_text = "Looking to dive into the world of profitable business models and side hustles? In this video, we'll uncover the secrets of starting your own business."
+            
+            # Rebuild description in exact template format
+            description = f"""[HOOK, keep it very short. like two sentences] {hook_text}
 
-[Always include these:]
+[Always include these in this exact format. nothing more or less:]
+
 Lead Generate Tool: ScrapeScorpion.com
+
 Subscribe: Youtube.com/@MoneyLeads"""
         
         # Clean up tags (remove duplicates, limit to 15)
