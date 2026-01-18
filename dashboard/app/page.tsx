@@ -665,37 +665,50 @@ export default function Home() {
                       {truncateText(job.title, 30)}
                     </td>
                     <td>
-                      <span 
-                        className={`job-status ${job.status}`}
-                        style={isProcessing(job.status) ? {
-                          backgroundColor: '#fff3cd',
-                          color: '#856404',
-                          border: '1px solid #ffc107'
-                        } : {}}
-                      >
-                        {getStatusDisplay(job.status)}
-                      </span>
-                      {isProcessing(job.status) && getEstimatedTime(job) && (
-                        <span style={{ 
-                          marginLeft: '8px', 
-                          fontSize: '10px', 
-                          color: '#856404',
-                          fontStyle: 'italic',
-                          fontWeight: '500'
-                        }}>
-                          ({getEstimatedTime(job)})
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <span 
+                          className={`job-status ${job.status}`}
+                          style={isProcessing(job.status) ? {
+                            backgroundColor: '#fff3cd',
+                            color: '#856404',
+                            border: '1px solid #ffc107'
+                          } : {}}
+                        >
+                          {getStatusDisplay(job.status)}
                         </span>
-                      )}
-                      {job.status === 'pending' && job.metadata?.action_needed && (
-                        <span style={{ 
-                          marginLeft: '8px', 
-                          fontSize: '10px', 
-                          color: '#666',
-                          fontStyle: 'italic'
-                        }}>
-                          (queued: {job.metadata.action_needed.replace('_', ' ')})
-                        </span>
-                      )}
+                        {isProcessing(job.status) && (
+                          <span style={{ 
+                            fontSize: '9px', 
+                            color: '#4a90e2',
+                            fontWeight: '600',
+                            textTransform: 'uppercase'
+                          }}>
+                            {job.status === 'generating_script' && '📝 Script Worker'}
+                            {job.status === 'creating_voiceover' && '🎤 Voiceover Worker'}
+                            {job.status === 'rendering_video' && '🎬 Video Worker'}
+                            {job.status === 'uploading' && '📤 YouTube Worker'}
+                          </span>
+                        )}
+                        {isProcessing(job.status) && getEstimatedTime(job) && (
+                          <span style={{ 
+                            fontSize: '10px', 
+                            color: '#856404',
+                            fontStyle: 'italic',
+                            fontWeight: '500'
+                          }}>
+                            ({getEstimatedTime(job)})
+                          </span>
+                        )}
+                        {job.status === 'pending' && job.metadata?.action_needed && (
+                          <span style={{ 
+                            fontSize: '10px', 
+                            color: '#666',
+                            fontStyle: 'italic'
+                          }}>
+                            (queued: {job.metadata.action_needed.replace('_', ' ')})
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className={getCellHighlight(job, 'script')}>
                       {job.script ? '✅' : '❌'}
