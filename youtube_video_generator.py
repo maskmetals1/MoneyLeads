@@ -119,9 +119,13 @@ def generate_voiceover(script_text: str, output_path: Path, voice: str = None) -
 
 def compile_background_videos(folder_path: Path, target_duration: float, output_resolution: Tuple[int, int] = (1920, 1080)) -> Optional[object]:
     """
-    Optimized: Use WebsiteBackground.mp4 if available, otherwise use longest video
+    Optimized: Use WebsiteBackground.mp4 if available (pre-rendered, fastest option)
+    Otherwise use longest video
     Picks a random segment from the video to use as background
     Handles edge cases where random spot + duration would exceed video length
+    
+    Background video preprocessing: WebsiteBackground.mp4 is already pre-combined,
+    so we just need to extract a random segment - much faster than compiling on-the-fly.
     
     Returns:
         VideoFileClip object or None
@@ -132,10 +136,11 @@ def compile_background_videos(folder_path: Path, target_duration: float, output_
         
         print(f"  📁 Loading videos from: {folder_path}")
         
-        # Check for WebsiteBackground.mp4 first (preferred - already combined)
+        # Check for WebsiteBackground.mp4 first (preferred - already pre-rendered/combined)
+        # This is the background video preprocessing optimization - using pre-combined video
         website_bg = folder_path / "WebsiteBackground.mp4"
         if website_bg.exists():
-            print(f"  ✅ Using WebsiteBackground.mp4 (optimized!)")
+            print(f"  ✅ Using WebsiteBackground.mp4 (pre-rendered, optimized!)")
             video_file = website_bg
         else:
             # Fallback: Find the longest video
@@ -405,7 +410,7 @@ def render_final_video(
             codec='libx264',
             audio=False,  # No audio - we'll add it with FFmpeg
             fps=24,
-            preset='fast',  # Faster preset
+            preset='ultrafast',  # Fastest preset for speed
             threads=multiprocessing.cpu_count(),  # Use all CPU cores
             verbose=False,
             logger=None,
@@ -426,8 +431,15 @@ def render_final_video(
             "-i", str(audio_path),   # Audio input
             "-vf", f"subtitles={subtitle_path_escaped}:force_style='FontSize=24,PrimaryColour=&Hffffff,OutlineColour=&H000000,Outline=2,Alignment=2,MarginV=20,Bold=1'",
             "-c:v", "libx264",
+            "-preset", "ultrafast",  # Fastest encoding preset
+            "-crf", "23",  # Quality setting (18-28 range, 23 is good quality, higher = faster)
+            "-tune", "fastdecode",  # Optimize for fast decoding
+            "-profile:v", "high",  # High profile for better quality
+            "-level", "4.0",  # H.264 level for compatibility
+            "-pix_fmt", "yuv420p",  # Ensure compatibility
             "-c:a", "aac",
-            "-preset", "fast",  # Faster encoding
+            "-b:a", "192k",  # High quality audio bitrate (192k is standard for good quality)
+            "-ar", "48000",  # High quality audio sample rate
             "-threads", str(multiprocessing.cpu_count()),  # Use all CPU cores
             "-shortest",  # Ensure output duration matches shortest input (video or audio)
             "-y",

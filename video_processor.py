@@ -145,8 +145,16 @@ class VideoProcessor:
                     traceback.print_exc()
                     return None
             
-            # Run both tasks in parallel
-            with ThreadPoolExecutor(max_workers=2) as executor:
+            # Use ThreadPoolExecutor with increased workers (10) for better parallelization
+            # Note: ProcessPoolExecutor requires picklable functions, but nested functions aren't picklable
+            # ThreadPoolExecutor works fine for I/O-bound and some CPU-bound tasks with GIL release
+            from concurrent.futures import ThreadPoolExecutor
+            import multiprocessing
+            
+            # Use 10 workers (or CPU count, whichever is less) for better parallelization
+            max_workers = min(10, multiprocessing.cpu_count())
+            
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 future_video = executor.submit(compile_videos)
                 future_timestamps = executor.submit(extract_timestamps)
                 
