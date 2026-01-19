@@ -55,15 +55,21 @@ export async function GET(request: NextRequest) {
       // 3. Check for heartbeats in metadata (workers send heartbeats every 30 seconds)
       let hasHeartbeat = false
       let latestHeartbeat: Date | null = null
+      let workerPid: string | null = null
       for (const job of jobs || []) {
         const metadata = job.metadata || {}
         const heartbeatKey = worker.name.toLowerCase().replace(' ', '_') + '_heartbeat'
+        const pidKey = worker.name.toLowerCase().replace(' ', '_') + '_pid'
         if (metadata[heartbeatKey]) {
           const heartbeatTime = new Date(metadata[heartbeatKey])
           if (heartbeatTime >= fiveMinutesAgo) {
             hasHeartbeat = true
             if (!latestHeartbeat || heartbeatTime > latestHeartbeat) {
               latestHeartbeat = heartbeatTime
+              // Get PID from the same job that has the latest heartbeat
+              if (metadata[pidKey]) {
+                workerPid = String(metadata[pidKey])
+              }
             }
           }
         }
@@ -104,6 +110,7 @@ export async function GET(request: NextRequest) {
         file: worker.file,
         emoji: worker.emoji,
         running: isRunning,
+        pid: workerPid || undefined,
         instanceCount: isRunning ? Math.max(currentlyProcessing.length, recentActivity.length > 0 ? 1 : 0, pendingJobsForWorker.length > 0 ? 1 : 0) : 0,
         activeJobs: currentlyProcessing.length,
         pendingJobs: pendingJobsForWorker.length,

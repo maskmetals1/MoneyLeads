@@ -6,6 +6,7 @@ Shared functionality for all specialized workers
 
 import time
 import sys
+import os
 import threading
 import datetime
 from typing import List, Dict, Any, Optional, Tuple
@@ -171,11 +172,13 @@ class BaseWorker:
                     try:
                         all_jobs = self.supabase.get_all_jobs(limit=10)
                         if all_jobs:
-                            # Update the most recent job's metadata with heartbeat
+                            # Update the most recent job's metadata with heartbeat and PID
                             job = all_jobs[0]
                             metadata = job.get("metadata", {})
                             heartbeat_key = f"{self.worker_name.lower().replace(' ', '_')}_heartbeat"
+                            pid_key = f"{self.worker_name.lower().replace(' ', '_')}_pid"
                             metadata[heartbeat_key] = datetime.datetime.utcnow().isoformat()
+                            metadata[pid_key] = self.pid  # Store PID in metadata
                             # Only update metadata, not status - this is safe even if job is processing
                             self.supabase.update_job_status(job["id"], status=None, metadata=metadata)
                         else:

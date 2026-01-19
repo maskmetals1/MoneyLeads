@@ -726,6 +726,11 @@ export default function Home() {
                     {worker.running && (
                       <div style={{ fontSize: '12px', color: '#666', marginTop: '6px' }}>
                         <div>Status: Running (Local)</div>
+                        {worker.pid && (
+                          <div style={{ color: '#666', fontWeight: '500' }}>
+                            PID: {worker.pid}
+                          </div>
+                        )}
                         {(worker.activeJobs ?? 0) > 0 && (
                           <div style={{ color: '#00aa00', fontWeight: '600' }}>
                             ✓ Processing {worker.activeJobs} job(s)
