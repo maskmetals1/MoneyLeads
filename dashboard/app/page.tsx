@@ -851,11 +851,11 @@ export default function Home() {
                                 borderRadius: '4px',
                                 border: '1px solid #e0e0e0'
                               }}>
-                                <div style={{ fontWeight: '600', fontSize: '11px', color: '#333', marginBottom: '4px' }}>
+                                <div style={{ fontWeight: '600', fontSize: '9px', color: '#333', marginBottom: '4px' }}>
                                   {job.id}... - {job.topic.substring(0, 25)}
                                 </div>
                                 {job.title && job.title !== 'N/A' && (
-                                  <div style={{ fontSize: '10px', color: '#666', marginBottom: '4px', fontStyle: 'italic' }}>
+                                  <div style={{ fontSize: '8px', color: '#666', marginBottom: '4px', fontStyle: 'italic' }}>
                                     "{job.title.substring(0, 40)}..."
                                   </div>
                                 )}
@@ -1249,7 +1249,7 @@ export default function Home() {
                         )}
                         {isProcessing(job.status) && getEstimatedTime(job) && (
                           <span style={{ 
-                            fontSize: '10px', 
+                            fontSize: '8px', 
                             color: '#856404',
                             fontStyle: 'italic',
                             fontWeight: '500'
@@ -1259,7 +1259,7 @@ export default function Home() {
                         )}
                         {job.status === 'pending' && job.metadata?.action_needed && (
                           <span style={{ 
-                            fontSize: '10px', 
+                            fontSize: '8px', 
                             color: '#666',
                             fontStyle: 'italic'
                           }}>
