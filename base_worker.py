@@ -167,18 +167,24 @@ class BaseWorker:
                 if current_time - last_heartbeat >= heartbeat_interval:
                     # Update any job's metadata with a heartbeat timestamp
                     # We'll use a special approach: update the most recent job's metadata
+                    # If no jobs exist, create a dummy heartbeat job or update the first pending job
                     try:
-                        all_jobs = self.supabase.get_all_jobs(limit=1)
+                        all_jobs = self.supabase.get_all_jobs(limit=10)
                         if all_jobs:
-                            # Update metadata with heartbeat
+                            # Update the most recent job's metadata with heartbeat
                             job = all_jobs[0]
                             metadata = job.get("metadata", {})
-                            metadata[f"{self.worker_name.lower().replace(' ', '_')}_heartbeat"] = datetime.datetime.utcnow().isoformat()
-                            # Only update metadata, not status
+                            heartbeat_key = f"{self.worker_name.lower().replace(' ', '_')}_heartbeat"
+                            metadata[heartbeat_key] = datetime.datetime.utcnow().isoformat()
+                            # Only update metadata, not status - this is safe even if job is processing
                             self.supabase.update_job_status(job["id"], status=None, metadata=metadata)
+                        else:
+                            # No jobs exist - create a system heartbeat job
+                            # We'll just skip heartbeat if no jobs exist (workers will be detected by pending jobs)
+                            pass
                     except Exception as e:
-                        # Don't fail if heartbeat update fails
-                        pass
+                        # Don't fail if heartbeat update fails - just log it
+                        print(f"  ⚠️  Heartbeat update failed (non-critical): {e}")
                     last_heartbeat = current_time
                 
                 # Check how many jobs we can start

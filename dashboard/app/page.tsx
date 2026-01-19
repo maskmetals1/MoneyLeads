@@ -722,10 +722,25 @@ export default function Home() {
                     </div>
                     {worker.running && (
                       <div style={{ fontSize: '12px', color: '#666', marginTop: '6px' }}>
-                        <div>PID: {worker.pid}</div>
+                        <div>Status: Running (Local)</div>
+                        {worker.activeJobs > 0 && (
+                          <div style={{ color: '#00aa00', fontWeight: '600' }}>
+                            ✓ Processing {worker.activeJobs} job(s)
+                          </div>
+                        )}
+                        {worker.pendingJobs > 0 && (
+                          <div style={{ color: '#4a90e2', fontWeight: '600' }}>
+                            ⏳ {worker.pendingJobs} pending job(s)
+                          </div>
+                        )}
                         {worker.instanceCount > 1 && (
                           <div style={{ color: '#ffa500', fontWeight: '600' }}>
-                            ⚠️ {worker.instanceCount} instances running
+                            ⚠️ {worker.instanceCount} instances detected
+                          </div>
+                        )}
+                        {worker.lastHeartbeat && (
+                          <div style={{ fontSize: '10px', color: '#999', marginTop: '2px' }}>
+                            Last heartbeat: {new Date(worker.lastHeartbeat).toLocaleTimeString()}
                           </div>
                         )}
                       </div>
