@@ -769,23 +769,25 @@ export default function Home() {
               <div>
                 <strong>Job Status Summary:</strong>
                 <div style={{ marginTop: '5px', fontSize: '14px' }}>
-                  {Object.entries(workerStatus.statusCounts).map(([status, count]) => {
-                  const emoji = {
-                    pending: '⏳',
-                    generating_script: '📝',
-                    creating_voiceover: '🎤',
-                    rendering_video: '🎬',
-                    uploading: '📤',
-                    completed: '✅',
-                    failed: '❌'
-                  }[status] || '📋'
-                  return (
-                    <div key={status} style={{ marginBottom: '3px' }}>
-                      {emoji} {status}: {count}
-                    </div>
-                  )
-                })}
-              </div>
+                  {Object.entries(workerStatus.statusCounts)
+                    .filter(([status]) => status !== 'failed') // Filter out failed status
+                    .map(([status, count]) => {
+                      const emoji = {
+                        pending: '⏳',
+                        generating_script: '📝',
+                        creating_voiceover: '🎤',
+                        rendering_video: '🎬',
+                        uploading: '📤',
+                        completed: '✅',
+                        failed: '❌'
+                      }[status] || '📋'
+                      return (
+                        <div key={status} style={{ marginBottom: '3px' }}>
+                          {emoji} {status}: {count}
+                        </div>
+                      )
+                    })}
+                </div>
             </div>
             
             <div>
