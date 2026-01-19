@@ -851,15 +851,15 @@ export default function Home() {
                                 borderRadius: '4px',
                                 border: '1px solid #e0e0e0'
                               }}>
-                                <div style={{ fontWeight: '600', fontSize: '9px', color: '#333', marginBottom: '4px' }}>
+                                <div style={{ fontWeight: '600', fontSize: '11px', color: '#333', marginBottom: '4px' }}>
                                   {job.id}... - {job.topic.substring(0, 25)}
                                 </div>
                                 {job.title && job.title !== 'N/A' && (
-                                  <div style={{ fontSize: '8px', color: '#666', marginBottom: '4px', fontStyle: 'italic' }}>
+                                  <div style={{ fontSize: '10px', color: '#666', marginBottom: '4px', fontStyle: 'italic' }}>
                                     "{job.title.substring(0, 40)}..."
                                   </div>
                                 )}
-                                <div style={{ fontSize: '8px', color: '#999' }}>
+                                <div style={{ fontSize: '10px', color: '#999' }}>
                                   Running for: {elapsedMinutes}m | Status: {job.status.replace('_', ' ')}
                                   {job.subStatus && (
                                     <span style={{ color: '#4a90e2', fontWeight: '600' }}>
@@ -1236,10 +1236,12 @@ export default function Home() {
                         </span>
                         {isProcessing(job.status) && (
                           <span style={{ 
-                            fontSize: '7px', 
+                            fontSize: '14px', 
                             color: '#4a90e2',
                             fontWeight: '600',
-                            textTransform: 'uppercase'
+                            textTransform: 'uppercase',
+                            display: 'block',
+                            marginTop: '4px'
                           }}>
                             {job.status === 'generating_script' && '📝 Script Worker'}
                             {job.status === 'creating_voiceover' && '🎤 Voiceover Worker'}
@@ -1249,17 +1251,19 @@ export default function Home() {
                         )}
                         {isProcessing(job.status) && getEstimatedTime(job) && (
                           <span style={{ 
-                            fontSize: '8px', 
+                            fontSize: '13px', 
                             color: '#856404',
                             fontStyle: 'italic',
-                            fontWeight: '500'
+                            fontWeight: '500',
+                            display: 'block',
+                            marginTop: '2px'
                           }}>
                             ({getEstimatedTime(job)})
                           </span>
                         )}
                         {job.status === 'pending' && job.metadata?.action_needed && (
                           <span style={{ 
-                            fontSize: '8px', 
+                            fontSize: '10px', 
                             color: '#666',
                             fontStyle: 'italic'
                           }}>
