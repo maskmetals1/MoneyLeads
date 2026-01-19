@@ -69,11 +69,26 @@ export async function POST(request: NextRequest) {
         continue
       }
       
-      // Check if already queued for this action
+      // Check if already queued for this action OR run_all
       const metadata = job.metadata || {}
       const currentAction = metadata.action_needed
+      const originalAction = metadata.original_action
+      
+      // Prevent duplicate run_all triggers
+      if (action === 'run_all' && (currentAction === 'run_all' || originalAction === 'run_all')) {
+        alreadyQueued.push(`Job ${job.id.substring(0, 8)}: already queued for run_all`)
+        continue
+      }
+      
+      // Check if already queued for this specific action
       if (currentAction === action) {
         alreadyQueued.push(`Job ${job.id.substring(0, 8)}: already queued for ${action}`)
+        continue
+      }
+      
+      // Check if run_all is already in progress (any step of run_all)
+      if (action === 'run_all' && ['generating_script', 'generate_voiceover', 'create_video'].includes(currentAction)) {
+        alreadyProcessing.push(`Job ${job.id.substring(0, 8)}: run_all already in progress (${currentAction})`)
         continue
       }
       

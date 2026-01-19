@@ -60,6 +60,10 @@ class BaseWorker:
         # Filter jobs that need this action
         ready_jobs = []
         for job in all_jobs:
+            # Skip jobs that are already being processed (not pending)
+            if job.get("status") != "pending":
+                continue
+            
             metadata = job.get("metadata", {})
             job_action = metadata.get("action_needed")
             
@@ -79,7 +83,29 @@ class BaseWorker:
                 # Check dependencies
                 is_ready, missing = self.check_dependencies(job)
                 if is_ready:
-                    ready_jobs.append(job)
+                    # Immediately mark as processing to prevent duplicate pickup
+                    # This is a critical step to prevent race conditions
+                    processing_status = {
+                        "generating_script": "generating_script",
+                        "generate_voiceover": "creating_voiceover",
+                        "create_video": "rendering_video",
+                        "post_to_youtube": "uploading"
+                    }.get(action_needed, "pending")
+                    
+                    # Try to claim the job by updating status atomically
+                    # If update fails, another worker already claimed it
+                    try:
+                        updated = self.supabase.update_job_status(
+                            job["id"],
+                            status=processing_status,
+                            metadata=metadata  # Preserve metadata
+                        )
+                        if updated:
+                            ready_jobs.append(job)
+                        else:
+                            print(f"  ⚠️  Job {job['id'][:8]} already claimed by another worker")
+                    except Exception as e:
+                        print(f"  ⚠️  Failed to claim job {job['id'][:8]}: {e}")
                 else:
                     # Update job with missing dependencies info
                     current_metadata = job.get("metadata", {})

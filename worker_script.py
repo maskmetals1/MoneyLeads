@@ -41,10 +41,22 @@ class ScriptWorker(BaseWorker):
         job_id = job["id"]
         topic = job["topic"]
         
+        # Double-check job hasn't been processed already (race condition protection)
+        current_job = self.supabase.get_job(job_id)
+        if current_job and current_job.get("script"):
+            print(f"  ⚠️  Job {job_id[:8]} already has a script. Skipping to prevent overwrite.")
+            # Still update action_needed if it's run_all
+            metadata = current_job.get("metadata", {})
+            if metadata.get("action_needed") == "run_all" or metadata.get("original_action") == "run_all":
+                metadata["action_needed"] = "generate_voiceover"
+                metadata["original_action"] = "run_all"
+                self.supabase.update_job_status(job_id, status=None, metadata=metadata)
+            return True
+        
         try:
             # Step 1: Generate title and description first (separate API call)
             print(f"\n[1/3] Generating title and description...")
-            self.supabase.update_job_status(job_id, "generating_script")
+            # Status already set to generating_script by base_worker when claiming job
             
             title, description, tags = self.script_generator.generate_title_and_description(topic)
             
