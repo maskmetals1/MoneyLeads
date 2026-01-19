@@ -1,227 +1,99 @@
 #!/usr/bin/env python3
 """
 Download YouTube Video Thumbnails
-Downloads all thumbnails from a YouTube playlist or channel
+Downloads all thumbnails from a YouTube playlist or channel using yt-dlp
 """
 
 import sys
-import requests
+import subprocess
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 import argparse
-import re
-from urllib.parse import urlparse, parse_qs
-
-# Try to use YouTube API if available
-try:
-    from googleapiclient.discovery import build
-    from google.oauth2.credentials import Credentials
-    from google_auth_oauthlib.flow import InstalledAppFlow
-    from google.auth.transport.requests import Request
-    import pickle
-    from config import YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET
-    YOUTUBE_API_AVAILABLE = True
-except ImportError:
-    YOUTUBE_API_AVAILABLE = False
-    print("⚠️  YouTube API not available - will use direct URL method")
-
-# YouTube API scopes
-SCOPES = ['https://www.googleapis.com/auth/youtube.readonly']
+import shutil
 
 
-def get_youtube_service():
-    """Get authenticated YouTube API service"""
-    if not YOUTUBE_API_AVAILABLE:
-        return None
-    
-    creds = None
-    token_path = Path.home() / ".youtube_token.pickle"
-    credentials_path = Path.home() / ".youtube_credentials.json"
-    
-    # Load existing token
-    if token_path.exists():
-        with open(token_path, 'rb') as token:
-            creds = pickle.load(token)
-    
-    # If no valid credentials, get new ones
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            if not credentials_path.exists():
-                print("❌ YouTube credentials not found. Please set up YouTube API first.")
-                return None
-            
-            flow = InstalledAppFlow.from_client_secrets_file(
-                str(credentials_path), SCOPES)
-            creds = flow.run_local_server(port=0)
-        
-        # Save credentials for next run
-        with open(token_path, 'wb') as token:
-            pickle.dump(creds, token)
-    
-    return build('youtube', 'v3', credentials=creds)
+def check_yt_dlp() -> bool:
+    """Check if yt-dlp is installed"""
+    return shutil.which("yt-dlp") is not None
 
 
-def extract_playlist_id(url: str) -> Optional[str]:
-    """Extract playlist ID from YouTube URL"""
-    # Handle different URL formats
-    patterns = [
-        r'[?&]list=([a-zA-Z0-9_-]+)',
-        r'/playlist\?list=([a-zA-Z0-9_-]+)',
-    ]
-    
-    for pattern in patterns:
-        match = re.search(pattern, url)
-        if match:
-            return match.group(1)
-    
-    return None
-
-
-def extract_channel_id(url: str) -> Optional[str]:
-    """Extract channel ID from YouTube URL"""
-    patterns = [
-        r'youtube\.com/channel/([a-zA-Z0-9_-]+)',
-        r'youtube\.com/c/([a-zA-Z0-9_-]+)',
-        r'youtube\.com/@([a-zA-Z0-9_-]+)',
-        r'youtube\.com/user/([a-zA-Z0-9_-]+)',
-    ]
-    
-    for pattern in patterns:
-        match = re.search(pattern, url)
-        if match:
-            return match.group(1)
-    
-    return None
-
-
-def get_video_ids_from_playlist_api(playlist_id: str, service) -> List[str]:
-    """Get all video IDs from a playlist using YouTube API"""
-    video_ids = []
-    next_page_token = None
-    
-    try:
-        while True:
-            request = service.playlistItems().list(
-                part='contentDetails',
-                playlistId=playlist_id,
-                maxResults=50,
-                pageToken=next_page_token
-            )
-            response = request.execute()
-            
-            for item in response.get('items', []):
-                video_id = item['contentDetails']['videoId']
-                video_ids.append(video_id)
-            
-            next_page_token = response.get('nextPageToken')
-            if not next_page_token:
-                break
-        
-        return video_ids
-    except Exception as e:
-        print(f"❌ Error fetching playlist: {e}")
-        return []
-
-
-def get_video_ids_from_channel_api(channel_id: str, service) -> List[str]:
-    """Get all video IDs from a channel using YouTube API"""
-    video_ids = []
-    next_page_token = None
-    
-    try:
-        while True:
-            request = service.search().list(
-                part='id',
-                channelId=channel_id,
-                type='video',
-                maxResults=50,
-                pageToken=next_page_token,
-                order='date'
-            )
-            response = request.execute()
-            
-            for item in response.get('items', []):
-                video_id = item['id']['videoId']
-                video_ids.append(video_id)
-            
-            next_page_token = response.get('nextPageToken')
-            if not next_page_token:
-                break
-        
-        return video_ids
-    except Exception as e:
-        print(f"❌ Error fetching channel videos: {e}")
-        return []
-
-
-def get_video_ids_from_url(url: str, service=None) -> List[str]:
-    """Get video IDs from a YouTube URL (playlist or channel)"""
-    playlist_id = extract_playlist_id(url)
-    if playlist_id:
-        print(f"📋 Found playlist ID: {playlist_id}")
-        if service:
-            return get_video_ids_from_playlist_api(playlist_id, service)
-        else:
-            print("⚠️  YouTube API not available - cannot fetch playlist videos")
-            print("   Please install YouTube API credentials or use yt-dlp")
-            return []
-    
-    channel_id = extract_channel_id(url)
-    if channel_id:
-        print(f"📺 Found channel ID: {channel_id}")
-        if service:
-            return get_video_ids_from_channel_api(channel_id, service)
-        else:
-            print("⚠️  YouTube API not available - cannot fetch channel videos")
-            print("   Please install YouTube API credentials or use yt-dlp")
-            return []
-    
-    # Try to extract video ID if it's a single video
-    video_id_match = re.search(r'(?:v=|/)([a-zA-Z0-9_-]{11})', url)
-    if video_id_match:
-        return [video_id_match.group(1)]
-    
-    print(f"❌ Could not extract playlist/channel ID from URL: {url}")
-    return []
-
-
-def download_thumbnail(video_id: str, output_dir: Path, quality: str = "maxresdefault") -> bool:
+def download_thumbnails_yt_dlp(url: str, output_dir: Path) -> bool:
     """
-    Download thumbnail for a video ID
+    Download thumbnails using yt-dlp
     
-    Quality options:
-    - maxresdefault: 1280x720 (best quality)
-    - sddefault: 640x480
-    - hqdefault: 480x360
-    - mqdefault: 320x180
-    - default: 120x90
+    Args:
+        url: YouTube playlist, channel, or video URL
+        output_dir: Directory to save thumbnails
+    
+    Returns:
+        True if successful, False otherwise
     """
-    url = f"https://img.youtube.com/vi/{video_id}/{quality}.jpg"
+    if not check_yt_dlp():
+        print("❌ yt-dlp is not installed!")
+        print("   Install with: pip install yt-dlp")
+        print("   Or: brew install yt-dlp")
+        return False
+    
+    # Ensure output directory exists
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Change to output directory so yt-dlp saves files there
+    original_cwd = Path.cwd()
     
     try:
-        response = requests.get(url, stream=True, timeout=10)
-        response.raise_for_status()
+        # Change to output directory
+        import os
+        os.chdir(output_dir)
         
-        # Check if we got a valid image (YouTube returns a placeholder if thumbnail doesn't exist)
-        if response.headers.get('content-type', '').startswith('image/'):
-            output_path = output_dir / f"{video_id}_{quality}.jpg"
-            with open(output_path, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
+        # Build yt-dlp command
+        # --no-download: Don't download video
+        # --write-thumbnail: Download thumbnail
+        # -w: Don't overwrite existing files
+        # -o: Output filename template
+        cmd = [
+            "yt-dlp",
+            "--no-download",
+            "--write-thumbnail",
+            "-w",  # Don't overwrite existing files
+            "-o", "%(title)s(%(id)s).%(ext)s",  # Format: Title(VideoID).jpg
+            url
+        ]
+        
+        print(f"📥 Downloading thumbnails from: {url}")
+        print(f"📁 Saving to: {output_dir}")
+        print(f"⏳ This may take a while for large playlists/channels...\n")
+        
+        # Run yt-dlp
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True
+        )
+        
+        if result.returncode == 0:
+            # Count downloaded files
+            thumbnail_files = list(output_dir.glob("*.jpg")) + list(output_dir.glob("*.webp"))
+            print(f"\n✅ Successfully downloaded {len(thumbnail_files)} thumbnail(s)")
             return True
         else:
-            print(f"  ⚠️  No thumbnail available for {video_id}")
+            print(f"❌ Error running yt-dlp:")
+            print(result.stderr)
             return False
+            
     except Exception as e:
-        print(f"  ❌ Error downloading thumbnail for {video_id}: {e}")
+        print(f"❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
         return False
+    finally:
+        # Change back to original directory
+        import os
+        os.chdir(original_cwd)
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Download YouTube video thumbnails from a playlist or channel",
+        description="Download YouTube video thumbnails from a playlist or channel using yt-dlp",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -234,8 +106,12 @@ Examples:
   # Download from a single video
   python download_thumbnails.py "https://www.youtube.com/watch?v=xxxxx"
   
-  # Use lower quality thumbnails (faster)
-  python download_thumbnails.py "https://www.youtube.com/playlist?list=PLxxxxx" --quality hqdefault
+  # Custom output folder
+  python download_thumbnails.py "https://www.youtube.com/playlist?list=PLxxxxx" -o ./my_thumbnails
+
+Note: Requires yt-dlp to be installed
+  Install with: pip install yt-dlp
+  Or: brew install yt-dlp
         """
     )
     
@@ -252,61 +128,12 @@ Examples:
         help="Output directory for thumbnails (default: ./thumbnails)"
     )
     
-    parser.add_argument(
-        "-q", "--quality",
-        type=str,
-        default="maxresdefault",
-        choices=["maxresdefault", "sddefault", "hqdefault", "mqdefault", "default"],
-        help="Thumbnail quality (default: maxresdefault)"
-    )
-    
     args = parser.parse_args()
     
-    # Create output directory
-    args.output.mkdir(parents=True, exist_ok=True)
-    print(f"📁 Output directory: {args.output}")
+    # Download thumbnails using yt-dlp
+    success = download_thumbnails_yt_dlp(args.url, args.output)
     
-    # Try to get YouTube API service
-    service = None
-    if YOUTUBE_API_AVAILABLE:
-        try:
-            service = get_youtube_service()
-            if service:
-                print("✅ YouTube API authenticated")
-        except Exception as e:
-            print(f"⚠️  Could not authenticate YouTube API: {e}")
-            print("   Will try to extract video IDs from URL directly...")
-    
-    # Get video IDs
-    print(f"\n🔍 Extracting video IDs from: {args.url}")
-    video_ids = get_video_ids_from_url(args.url, service)
-    
-    if not video_ids:
-        print("❌ No video IDs found. Please check the URL.")
-        return 1
-    
-    print(f"✅ Found {len(video_ids)} video(s)")
-    
-    # Download thumbnails
-    print(f"\n📥 Downloading thumbnails (quality: {args.quality})...")
-    success_count = 0
-    failed_count = 0
-    
-    for i, video_id in enumerate(video_ids, 1):
-        print(f"  [{i}/{len(video_ids)}] Downloading {video_id}...", end=" ")
-        if download_thumbnail(video_id, args.output, args.quality):
-            print("✅")
-            success_count += 1
-        else:
-            print("❌")
-            failed_count += 1
-    
-    print(f"\n✅ Complete!")
-    print(f"   Success: {success_count}")
-    if failed_count > 0:
-        print(f"   Failed: {failed_count}")
-    
-    return 0
+    return 0 if success else 1
 
 
 if __name__ == "__main__":
