@@ -25,27 +25,39 @@ export async function GET(request: NextRequest) {
     }
 
     const now = new Date()
-    const twoMinutesAgo = new Date(now.getTime() - 2 * 60 * 1000) // 2 minutes ago
+    const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000) // 5 minutes ago
 
     const workerStatuses = []
 
     for (const worker of workers) {
       // Check if this worker is active by looking for:
-      // 1. Jobs currently in this worker's status
-      // 2. Jobs that were recently updated with this status (within last 2 minutes)
-      const activeJobs = (jobs || []).filter(job => {
-        if (job.status === worker.status) {
-          return true // Currently processing
+      // 1. Jobs currently in this worker's status (definitely running)
+      const currentlyProcessing = (jobs || []).filter(job => job.status === worker.status)
+      
+      // 2. Check for heartbeats in metadata (workers send heartbeats every 30 seconds)
+      let hasHeartbeat = false
+      for (const job of jobs || []) {
+        const metadata = job.metadata || {}
+        const heartbeatKey = worker.name.toLowerCase().replace(' ', '_') + '_heartbeat'
+        if (metadata[heartbeatKey]) {
+          const heartbeatTime = new Date(metadata[heartbeatKey])
+          if (heartbeatTime >= fiveMinutesAgo) {
+            hasHeartbeat = true
+            break
+          }
         }
-        // Check if job was recently updated (within 2 minutes)
+      }
+      
+      // 3. Check for recent activity with this worker's sub_status
+      const recentActivity = (jobs || []).filter(job => {
+        if (job.status === worker.status) return true // Already counted in currentlyProcessing
+        
         if (job.updated_at) {
           const updated = new Date(job.updated_at)
-          if (updated >= twoMinutesAgo) {
-            // Check if this job's status matches or if it's in a state that indicates this worker was active
-            // Also check metadata for worker activity
+          if (updated >= fiveMinutesAgo) {
             const metadata = job.metadata || {}
             const subStatus = metadata.sub_status
-            // If sub_status indicates this worker's activity, consider it active
+            // Check if sub_status indicates this worker's activity
             if (subStatus && (
               (worker.status === 'generating_script' && (subStatus === 'generating_title_description' || subStatus === 'generating_script')) ||
               (worker.status === 'creating_voiceover' && (subStatus === 'generating_audio' || subStatus === 'uploading_voiceover')) ||
@@ -59,15 +71,15 @@ export async function GET(request: NextRequest) {
         return false
       })
 
-      const isRunning = activeJobs.length > 0
+      const isRunning = currentlyProcessing.length > 0 || hasHeartbeat || recentActivity.length > 0
 
       workerStatuses.push({
         name: worker.name,
         file: worker.file,
         emoji: worker.emoji,
         running: isRunning,
-        instanceCount: isRunning ? activeJobs.length : 0,
-        activeJobs: isRunning ? activeJobs.length : 0
+        instanceCount: isRunning ? Math.max(currentlyProcessing.length, recentActivity.length > 0 ? 1 : 0) : 0,
+        activeJobs: currentlyProcessing.length
       })
     }
 
