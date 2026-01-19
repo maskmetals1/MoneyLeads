@@ -1236,7 +1236,7 @@ export default function Home() {
                         </span>
                         {isProcessing(job.status) && (
                           <span style={{ 
-                            fontSize: '9px', 
+                            fontSize: '7px', 
                             color: '#4a90e2',
                             fontWeight: '600',
                             textTransform: 'uppercase'
