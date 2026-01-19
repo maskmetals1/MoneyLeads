@@ -79,7 +79,7 @@ class VideoProcessor:
     
     def process_video(self, script_text: str, output_path: Path, voiceover_path: Optional[Path] = None) -> Tuple[bool, Optional[float]]:
         """
-        Process a complete video from script text
+        Process a complete video from script text (OPTIMIZED with parallelization)
         
         Args:
             script_text: The video script text
@@ -89,6 +89,8 @@ class VideoProcessor:
         Returns:
             (success: bool, duration: float or None)
         """
+        from concurrent.futures import ThreadPoolExecutor
+        
         # Create temp directory for intermediate files
         self.temp_dir = Path(tempfile.mkdtemp(prefix="youtube_automation_"))
         self.voiceover_path = None
@@ -116,22 +118,65 @@ class VideoProcessor:
                 # Store voiceover path for later access
                 self.voiceover_path = audio_path
             
-            # Step 2: Compile background videos
-            video_clip = compile_background_videos(self.video_folder, duration)
+            print(f"  ⚡ Starting parallel processing (background video + timestamps)...")
+            
+            # Steps 2 & 3: Run in parallel (both only need audio_path and duration)
+            video_clip = None
+            word_timestamps = None
+            errors = []
+            
+            def compile_videos():
+                """Compile background videos"""
+                try:
+                    return compile_background_videos(self.video_folder, duration)
+                except Exception as e:
+                    errors.append(f"Background video compilation: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    return None
+            
+            def extract_timestamps():
+                """Extract word timestamps"""
+                try:
+                    return generate_word_timestamps(audio_path, self.whisper_model)
+                except Exception as e:
+                    errors.append(f"Timestamp extraction: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    return None
+            
+            # Run both tasks in parallel
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                future_video = executor.submit(compile_videos)
+                future_timestamps = executor.submit(extract_timestamps)
+                
+                # Wait for both to complete
+                video_clip = future_video.result()
+                word_timestamps = future_timestamps.result()
+            
+            # Check for errors
+            if errors:
+                print(f"  ❌ Errors during parallel processing:")
+                for error in errors:
+                    print(f"     - {error}")
+                return False, None
+            
             if video_clip is None:
+                print(f"  ❌ Background video compilation failed")
                 return False, None
             
-            # Step 3: Generate word timestamps
-            word_timestamps = generate_word_timestamps(audio_path, self.whisper_model)
             if word_timestamps is None:
+                print(f"  ❌ Word timestamp extraction failed")
                 return False, None
             
-            # Step 4: Create ASS subtitles
+            print(f"  ✅ Parallel processing complete!")
+            
+            # Step 4: Create ASS subtitles (fast, sequential)
             subtitle_path = self.temp_dir / "subtitles.ass"
             if not create_ass_subtitles(script_text, word_timestamps, subtitle_path):
                 return False, None
             
-            # Step 5: Render final video
+            # Step 5: Render final video (optimized single-pass)
             if not render_final_video(video_clip, audio_path, subtitle_path, output_path):
                 return False, None
             
