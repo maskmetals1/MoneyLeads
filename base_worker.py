@@ -71,11 +71,16 @@ class BaseWorker:
             # Also handle "run_all" - each worker processes it in sequence
             # Also check for original_action in metadata (preserved from run_all)
             original_action = metadata.get("original_action")
+            
+            # For run_all flow:
+            # - Script worker: action_needed should be "generate_script" (set by frontend) OR original_action is "run_all"
+            # - Voiceover worker: action_needed should be "generate_voiceover" (set by script worker) AND original_action is "run_all"
+            # - Video worker: action_needed should be "create_video" (set by voiceover worker) AND original_action is "run_all"
             should_process = (
                 job_action == action_needed or
-                (action_needed == "generate_script" and (job_action == "run_all" or original_action == "run_all")) or
-                (action_needed == "generate_voiceover" and (job_action == "run_all" or original_action == "run_all")) or
-                (action_needed == "create_video" and (job_action == "run_all" or original_action == "run_all"))
+                (action_needed == "generate_script" and (job_action == "generate_script" and original_action == "run_all")) or
+                (action_needed == "generate_voiceover" and (job_action == "generate_voiceover" and original_action == "run_all")) or
+                (action_needed == "create_video" and (job_action == "create_video" and original_action == "run_all"))
                 # Note: post_to_youtube is NOT included in run_all - YouTube posting must be done manually
             )
             

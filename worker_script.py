@@ -83,15 +83,17 @@ class ScriptWorker(BaseWorker):
             # Update action_needed based on original action
             current_job = self.supabase.get_job(job_id)
             current_metadata = current_job.get("metadata", {}) if current_job else {}
-            original_action = current_metadata.get("action_needed", "")
+            original_action = current_metadata.get("original_action", "")
+            current_action = current_metadata.get("action_needed", "")
             
             # If it was "run_all", preserve it and set next action to "generate_voiceover"
             # This ensures voiceover worker knows to continue the run_all flow
-            if original_action == "run_all":
+            if original_action == "run_all" or current_action == "run_all":
                 current_metadata["action_needed"] = "generate_voiceover"
                 current_metadata["original_action"] = "run_all"  # Preserve for subsequent workers
             else:
                 current_metadata.pop("action_needed", None)
+                current_metadata.pop("original_action", None)
             
             current_metadata.pop("missing_dependencies", None)
             self.supabase.update_job_status(job_id, "pending", metadata=current_metadata)

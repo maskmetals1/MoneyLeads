@@ -144,7 +144,10 @@ export async function POST(request: NextRequest) {
     } else if (action === 'create_video') {
       updates.metadata = { action_needed: 'create_video' }
     } else if (action === 'run_all') {
-      updates.metadata = { action_needed: 'run_all' }
+      updates.metadata = { 
+        action_needed: 'generate_script',  // Start with first step
+        original_action: 'run_all'  // Preserve for subsequent workers
+      }
     } else if (action === 'post_to_youtube') {
       updates.metadata = { action_needed: 'post_to_youtube' }
     }
