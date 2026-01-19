@@ -861,6 +861,11 @@ export default function Home() {
                                 )}
                                 <div style={{ fontSize: '10px', color: '#999' }}>
                                   Running for: {elapsedMinutes}m | Status: {job.status.replace('_', ' ')}
+                                  {job.subStatus && (
+                                    <span style={{ color: '#4a90e2', fontWeight: '600' }}>
+                                      {' • '}{job.subStatus.replace('_', ' ')}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             )

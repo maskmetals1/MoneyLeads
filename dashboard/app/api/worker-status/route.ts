@@ -60,6 +60,7 @@ export async function GET(request: NextRequest) {
           topic: job.topic || 'N/A',
           title: job.title || 'N/A',
           status: status,
+          subStatus: job.metadata?.sub_status || null,
           workerType: workerType,
           updatedAt: job.updated_at,
           startedAt: job.started_at || job.updated_at
