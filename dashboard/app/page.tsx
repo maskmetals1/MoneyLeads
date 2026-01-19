@@ -41,6 +41,9 @@ interface WorkerProcess {
   running: boolean
   pid?: string
   instanceCount: number
+  activeJobs?: number
+  pendingJobs?: number
+  lastHeartbeat?: string | null
   info?: string
   error?: string
 }
