@@ -1244,26 +1244,6 @@ export default function Home() {
                             )}
                           </div>
                           <div>
-                            <h4>URLs</h4>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                              {job.voiceover_url && (
-                                <a href={job.voiceover_url} target="_blank" rel="noopener noreferrer">
-                                  🎤 Voiceover
-                                </a>
-                              )}
-                              {job.video_url && (
-                                <a href={job.video_url} target="_blank" rel="noopener noreferrer">
-                                  📹 Video
-                                </a>
-                              )}
-                              {job.youtube_url && (
-                                <a href={job.youtube_url} target="_blank" rel="noopener noreferrer">
-                                  📺 YouTube
-                                </a>
-                              )}
-                            </div>
-                          </div>
-                          <div>
                             <h4>Metadata</h4>
                             <pre style={{ fontSize: '11px', overflow: 'auto', maxHeight: '200px' }}>
                               {JSON.stringify(job.metadata || {}, null, 2)}
