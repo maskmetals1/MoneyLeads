@@ -87,6 +87,7 @@ export default function Home() {
 
   const loadJobs = async () => {
     try {
+      setLoading(true)
       const { data, error } = await supabase
         .from('video_jobs')
         .select('*')
@@ -94,7 +95,59 @@ export default function Home() {
         .limit(200)
 
       if (error) throw error
-      setJobs(data || [])
+
+      const jobs = data || []
+      
+      // Update jobs to "ready" status if they have script, voiceover, and video but no YouTube URL
+      const jobsToUpdate: Array<{ id: string; status: string; metadata: any }> = []
+      for (const job of jobs) {
+        // Check if job should be "ready" status
+        if (job.status === 'pending' || job.status === 'ready') {
+          const hasScript = job.script && job.script.length > 0
+          const hasVoiceover = job.voiceover_url && job.voiceover_url.length > 0
+          const hasVideo = job.video_url && job.video_url.length > 0
+          const hasYouTube = job.youtube_url && job.youtube_url.length > 0
+          
+          // If all steps complete except YouTube, should be "ready"
+          if (hasScript && hasVoiceover && hasVideo && !hasYouTube) {
+            if (job.status !== 'ready') {
+              const metadata = job.metadata || {}
+              metadata.action_needed = 'post_to_youtube'
+              jobsToUpdate.push({ id: job.id, status: 'ready', metadata })
+            }
+          }
+        }
+      }
+      
+      // Batch update jobs to "ready" status
+      if (jobsToUpdate.length > 0) {
+        for (const update of jobsToUpdate) {
+          await supabase
+            .from('video_jobs')
+            .update({ 
+              status: update.status,
+              metadata: update.metadata,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', update.id)
+        }
+        
+        // Reload jobs after update
+        const { data: updatedData, error: reloadError } = await supabase
+          .from('video_jobs')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(200)
+        
+        if (!reloadError && updatedData) {
+          setJobs(updatedData)
+        } else {
+          setJobs(jobs)
+        }
+      } else {
+        setJobs(jobs)
+      }
+      
       setLastRefresh(new Date())
     } catch (error: any) {
       console.error('Error loading jobs:', error)
