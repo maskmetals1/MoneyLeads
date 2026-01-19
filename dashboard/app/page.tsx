@@ -1129,29 +1129,6 @@ export default function Home() {
                           <div>
                             <h4>Topic/Idea</h4>
                             <p>{job.topic}</p>
-                            <div style={{ marginTop: '15px' }}>
-                              <h4>URLs</h4>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                {job.voiceover_url && (
-                                  <a href={job.voiceover_url} target="_blank" rel="noopener noreferrer">
-                                    🎤 Voiceover
-                                  </a>
-                                )}
-                                {job.video_url && (
-                                  <a href={job.video_url} target="_blank" rel="noopener noreferrer">
-                                    📹 Video
-                                  </a>
-                                )}
-                                {job.youtube_url && (
-                                  <a href={job.youtube_url} target="_blank" rel="noopener noreferrer">
-                                    📺 YouTube
-                                  </a>
-                                )}
-                                {!job.voiceover_url && !job.video_url && !job.youtube_url && (
-                                  <p style={{ color: '#999', fontSize: '13px' }}>No URLs available</p>
-                                )}
-                              </div>
-                            </div>
                           </div>
                           <div>
                             <h4 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
