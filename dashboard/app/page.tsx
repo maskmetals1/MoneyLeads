@@ -819,17 +819,17 @@ export default function Home() {
                         <div style={{ 
                           display: 'flex', 
                           alignItems: 'center', 
-                          gap: '6px', 
-                          marginBottom: '10px',
+                          gap: '8px', 
+                          marginBottom: '12px',
                           fontWeight: '600',
-                          fontSize: '13px',
+                          fontSize: '18px',
                           color: '#4a90e2'
                         }}>
-                          <span>{workerEmoji}</span>
+                          <span style={{ fontSize: '20px' }}>{workerEmoji}</span>
                           <span>{workerType}</span>
                           <span style={{
-                            fontSize: '10px',
-                            padding: '2px 6px',
+                            fontSize: '14px',
+                            padding: '4px 8px',
                             backgroundColor: '#4a90e2',
                             color: 'white',
                             borderRadius: '10px'
@@ -845,21 +845,21 @@ export default function Home() {
                             
                             return (
                               <div key={idx} style={{
-                                marginBottom: '8px',
-                                padding: '8px',
+                                marginBottom: '10px',
+                                padding: '10px',
                                 backgroundColor: '#f9f9f9',
                                 borderRadius: '4px',
                                 border: '1px solid #e0e0e0'
                               }}>
-                                <div style={{ fontWeight: '600', fontSize: '11px', color: '#333', marginBottom: '4px' }}>
+                                <div style={{ fontWeight: '600', fontSize: '14px', color: '#333', marginBottom: '6px' }}>
                                   {job.id}... - {job.topic.substring(0, 25)}
                                 </div>
                                 {job.title && job.title !== 'N/A' && (
-                                  <div style={{ fontSize: '10px', color: '#666', marginBottom: '4px', fontStyle: 'italic' }}>
+                                  <div style={{ fontSize: '13px', color: '#666', marginBottom: '6px', fontStyle: 'italic' }}>
                                     "{job.title.substring(0, 40)}..."
                                   </div>
                                 )}
-                                <div style={{ fontSize: '10px', color: '#999' }}>
+                                <div style={{ fontSize: '13px', color: '#999' }}>
                                   Running for: {elapsedMinutes}m | Status: {job.status.replace('_', ' ')}
                                   {job.subStatus && (
                                     <span style={{ color: '#4a90e2', fontWeight: '600' }}>
