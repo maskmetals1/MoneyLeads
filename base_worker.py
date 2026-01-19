@@ -63,8 +63,9 @@ class BaseWorker:
         # Filter jobs that need this action
         ready_jobs = []
         for job in all_jobs:
-            # Skip jobs that are already being processed (not pending)
-            if job.get("status") != "pending":
+            # Skip jobs that are already being processed (not pending or ready)
+            # "ready" status means all steps complete except YouTube upload
+            if job.get("status") not in ["pending", "ready"]:
                 continue
             
             metadata = job.get("metadata", {})

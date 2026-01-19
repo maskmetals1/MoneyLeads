@@ -161,6 +161,7 @@ export default function Home() {
   const getStatusDisplay = (status: string) => {
     const statusMap: Record<string, string> = {
       pending: 'Pending',
+      ready: 'Ready',
       generating_script: 'Generating Script',
       creating_voiceover: 'Creating Voiceover',
       rendering_video: 'Rendering Video',
@@ -307,8 +308,8 @@ export default function Home() {
   
   // Check if job is already queued or processing for an action
   const isJobQueuedOrProcessing = (job: Job, action: string): boolean => {
-    // Check if already processing (not pending or failed)
-    if (job.status !== 'pending' && job.status !== 'failed') {
+    // Check if already processing (not pending, ready, or failed)
+    if (job.status !== 'pending' && job.status !== 'ready' && job.status !== 'failed') {
       return true
     }
     
@@ -355,8 +356,8 @@ export default function Home() {
     const alreadyProcessing: string[] = []
     
     for (const job of jobsToProcess) {
-      // Check if already processing (not pending)
-      if (job.status !== 'pending' && job.status !== 'failed') {
+      // Check if already processing (not pending, ready, or failed)
+      if (job.status !== 'pending' && job.status !== 'ready' && job.status !== 'failed') {
         alreadyProcessing.push(`Job ${job.id.substring(0, 8)}: already ${job.status}`)
         continue
       }
@@ -1286,7 +1287,7 @@ export default function Home() {
                             ({getEstimatedTime(job)})
                           </span>
                         )}
-                        {job.status === 'pending' && job.metadata?.action_needed && (
+                        {(job.status === 'pending' || job.status === 'ready') && job.metadata?.action_needed && (
                           <span style={{ 
                             fontSize: '10px', 
                             color: '#666',

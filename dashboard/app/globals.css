@@ -191,6 +191,12 @@ body {
   color: #856404;
 }
 
+.job-status.ready {
+  background: #d1ecf1;
+  color: #0c5460;
+  border: 1px solid #bee5eb;
+}
+
 .job-status.generating_script {
   background: #fff3cd;
   color: #856404;

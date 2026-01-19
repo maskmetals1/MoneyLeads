@@ -35,13 +35,13 @@ export async function GET(request: NextRequest) {
       const status = job.status || 'unknown'
       statusCounts[status] = (statusCounts[status] || 0) + 1
 
-      if (status === 'pending') {
+      if (status === 'pending' || status === 'ready') {
         const metadata = job.metadata || {}
-        const actionNeeded = metadata.action_needed
+        const actionNeeded = metadata.action_needed || (status === 'ready' ? 'post_to_youtube' : 'next step')
         pendingJobs.push({
           id: job.id.substring(0, 8),
           topic: job.topic || 'N/A',
-          action: actionNeeded || 'next step',
+          action: actionNeeded,
           updatedAt: job.updated_at
         })
       } else if (['generating_script', 'creating_voiceover', 'rendering_video', 'uploading'].includes(status)) {

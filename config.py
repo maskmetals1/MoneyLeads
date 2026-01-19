@@ -48,10 +48,12 @@ LOCAL_TEMP_DIR = Path(os.getenv("LOCAL_TEMP_DIR", "/tmp/youtube_automation"))
 # Local file storage paths (instead of Supabase Storage)
 LOCAL_VIDEOS_DIR = Path(os.getenv("LOCAL_VIDEOS_DIR", "/Users/phill/Desktop/youtube_automation/videos"))
 LOCAL_VOICEOVERS_DIR = Path(os.getenv("LOCAL_VOICEOVERS_DIR", "/Users/phill/Desktop/youtube_automation/voiceovers"))
+THUMBNAILS_DIR = Path(os.getenv("THUMBNAILS_DIR", "/Users/phill/Desktop/youtube_automation/thumbnails"))
 
 # Create directories if they don't exist
 LOCAL_VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
 LOCAL_VOICEOVERS_DIR.mkdir(parents=True, exist_ok=True)
+THUMBNAILS_DIR.mkdir(parents=True, exist_ok=True)
 
 def validate_config():
     """Validate that required configuration is present"""

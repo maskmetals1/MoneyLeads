@@ -63,8 +63,8 @@ export async function POST(request: NextRequest) {
     const alreadyProcessing: string[] = []
     
     for (const job of jobs || []) {
-      // Check if already processing (not pending or failed)
-      if (job.status !== 'pending' && job.status !== 'failed') {
+      // Check if already processing (not pending, ready, or failed)
+      if (job.status !== 'pending' && job.status !== 'ready' && job.status !== 'failed') {
         alreadyProcessing.push(`Job ${job.id.substring(0, 8)}: already ${job.status}`)
         continue
       }

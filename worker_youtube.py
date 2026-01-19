@@ -8,10 +8,12 @@ Dependencies: title, description, video_url
 import sys
 import requests
 import shutil
+import random
 from pathlib import Path
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 from base_worker import BaseWorker
 from youtube_uploader import YouTubeUploader
+from config import THUMBNAILS_DIR
 
 
 class YouTubeWorker(BaseWorker):
@@ -43,6 +45,73 @@ class YouTubeWorker(BaseWorker):
             missing.append("video_url")
         
         return len(missing) == 0, missing
+    
+    def get_random_thumbnail(self) -> Optional[Path]:
+        """
+        Get a random thumbnail from the thumbnails folder
+        Converts WEBP to JPG if needed (YouTube API doesn't accept WEBP)
+        
+        Returns:
+            Path to thumbnail file (converted to JPG if needed), or None if no thumbnails found
+        """
+        if not THUMBNAILS_DIR.exists():
+            print(f"  ⚠️  Thumbnails directory not found: {THUMBNAILS_DIR}")
+            return None
+        
+        # Get all image files (webp, jpg, jpeg, png)
+        image_extensions = {'.webp', '.jpg', '.jpeg', '.png', '.gif', '.bmp'}
+        thumbnails = [
+            f for f in THUMBNAILS_DIR.iterdir()
+            if f.is_file() and f.suffix.lower() in image_extensions
+            and not f.name.startswith('.')  # Skip hidden files like .DS_Store
+        ]
+        
+        if not thumbnails:
+            print(f"  ⚠️  No thumbnails found in {THUMBNAILS_DIR}")
+            return None
+        
+        # Select random thumbnail
+        selected = random.choice(thumbnails)
+        print(f"  🖼️  Selected thumbnail: {selected.name}")
+        
+        # YouTube API accepts: JPG, PNG, GIF, BMP (not WEBP)
+        # Convert WEBP to JPG if needed
+        if selected.suffix.lower() == '.webp':
+            try:
+                from PIL import Image
+                import tempfile
+                
+                # Convert WEBP to JPG
+                print(f"  🔄 Converting WEBP to JPG for YouTube compatibility...")
+                img = Image.open(selected)
+                # Convert RGBA to RGB if needed (JPG doesn't support transparency)
+                if img.mode in ('RGBA', 'LA', 'P'):
+                    # Create white background
+                    rgb_img = Image.new('RGB', img.size, (255, 255, 255))
+                    if img.mode == 'P':
+                        img = img.convert('RGBA')
+                    rgb_img.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
+                    img = rgb_img
+                elif img.mode != 'RGB':
+                    img = img.convert('RGB')
+                
+                # Save as JPG to temp file
+                temp_jpg = tempfile.NamedTemporaryFile(suffix='.jpg', delete=False)
+                temp_jpg_path = Path(temp_jpg.name)
+                img.save(temp_jpg_path, 'JPEG', quality=95)
+                temp_jpg.close()
+                
+                print(f"  ✅ Converted to JPG: {temp_jpg_path.name}")
+                return temp_jpg_path
+            except ImportError:
+                print(f"  ⚠️  PIL/Pillow not available, cannot convert WEBP. Skipping thumbnail.")
+                return None
+            except Exception as e:
+                print(f"  ⚠️  Failed to convert WEBP to JPG: {e}. Skipping thumbnail.")
+                return None
+        
+        # Return original if already in supported format
+        return selected
     
     def process_job(self, job: Dict[str, Any]) -> bool:
         """Process YouTube upload job"""
@@ -90,6 +159,9 @@ class YouTubeWorker(BaseWorker):
                     raise FileNotFoundError(f"Video file not found at local path: {video_path}")
                 print(f"  ✅ Using local video: {video_path}")
             
+            # Get random thumbnail
+            thumbnail_path = self.get_random_thumbnail()
+            
             # Upload to YouTube
             print(f"\n[2/2] Uploading to YouTube...")
             youtube_result = self.youtube_uploader.upload_video(
@@ -97,7 +169,8 @@ class YouTubeWorker(BaseWorker):
                 title=title,
                 description=description,
                 tags=tags if isinstance(tags, list) else [],
-                privacy_status=privacy_status
+                privacy_status=privacy_status,
+                thumbnail_path=thumbnail_path
             )
             
             youtube_video_id = youtube_result["video_id"]
@@ -116,10 +189,18 @@ class YouTubeWorker(BaseWorker):
             current_metadata.pop("missing_dependencies", None)
             self.supabase.update_job_status(job_id, "completed", metadata=current_metadata)
             
-            # Cleanup temp directory only if we downloaded a file
+            # Cleanup temp files
             if temp_dir:
                 try:
                     shutil.rmtree(temp_dir)
+                except:
+                    pass
+            
+            # Cleanup converted thumbnail temp file if it was created (WEBP -> JPG conversion)
+            if thumbnail_path and thumbnail_path.exists() and '/tmp' in str(thumbnail_path) and thumbnail_path.suffix.lower() == '.jpg':
+                try:
+                    thumbnail_path.unlink()
+                    print(f"  🗑️  Cleaned up temporary thumbnail file")
                 except:
                     pass
             
@@ -131,6 +212,20 @@ class YouTubeWorker(BaseWorker):
             print(f"\n❌ YouTube upload failed: {error_msg}")
             import traceback
             traceback.print_exc()
+            
+            # Cleanup temp files even on error
+            if temp_dir:
+                try:
+                    shutil.rmtree(temp_dir)
+                except:
+                    pass
+            
+            # Cleanup converted thumbnail temp file if it was created
+            if 'thumbnail_path' in locals() and thumbnail_path and thumbnail_path.exists() and '/tmp' in str(thumbnail_path) and thumbnail_path.suffix.lower() == '.jpg':
+                try:
+                    thumbnail_path.unlink()
+                except:
+                    pass
             
             self.supabase.update_job_status(
                 job_id,

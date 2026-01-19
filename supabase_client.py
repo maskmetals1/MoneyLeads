@@ -35,10 +35,10 @@ class SupabaseClient:
         return result.data[0] if result.data else None
     
     def get_pending_jobs(self, limit: int = 1) -> List[Dict[str, Any]]:
-        """Get pending jobs (for worker to process)"""
+        """Get pending jobs (for worker to process) - includes 'pending' and 'ready' status"""
         result = self.client.table("video_jobs")\
             .select("*")\
-            .eq("status", "pending")\
+            .in_("status", ["pending", "ready"])\
             .order("created_at", desc=False)\
             .limit(limit)\
             .execute()

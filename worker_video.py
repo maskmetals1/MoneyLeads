@@ -120,17 +120,27 @@ class VideoWorker(BaseWorker):
             # Clear sub_status
             current_metadata.pop("sub_status", None)
             
-            # Clear action_needed - video creation is complete
-            # Do NOT automatically post to YouTube
+            # Video creation is complete - check if all steps are done except YouTube upload
             current_job = self.supabase.get_job(job_id)
             current_metadata = current_job.get("metadata", {}) if current_job else {}
             
-            # Clear action_needed and original_action - workflow stops after video creation
-            current_metadata.pop("action_needed", None)
+            # Clear original_action and missing_dependencies
             current_metadata.pop("original_action", None)
             current_metadata.pop("missing_dependencies", None)
             
-            self.supabase.update_job_status(job_id, "pending", metadata=current_metadata)
+            # Check if all steps are complete except YouTube upload
+            # If script, voiceover, and video exist but no YouTube URL, set status to "ready"
+            if (current_job.get("script") and 
+                current_job.get("voiceover_url") and 
+                current_job.get("video_url") and 
+                not current_job.get("youtube_url")):
+                # Set action_needed to post_to_youtube so YouTube worker can pick it up
+                current_metadata["action_needed"] = "post_to_youtube"
+                self.supabase.update_job_status(job_id, "ready", metadata=current_metadata)
+            else:
+                # Clear action_needed - workflow stops after video creation
+                current_metadata.pop("action_needed", None)
+                self.supabase.update_job_status(job_id, "pending", metadata=current_metadata)
             
             # Cleanup
             try:
