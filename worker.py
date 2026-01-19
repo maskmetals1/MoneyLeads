@@ -277,10 +277,11 @@ class Worker:
                     shutil.copy2(voiceover_path, worker_voiceover_path)
                     voiceover_path = worker_voiceover_path
                     
-                    # Upload and save voiceover URL immediately
+                    # Save voiceover locally with unique name
                     if not job.get("voiceover_url"):
-                        voiceover_url = self.supabase.upload_voiceover(voiceover_path, job_id)
-                        print(f"  ✅ Voiceover uploaded and saved: {voiceover_url}")
+                        voiceover_path_local = self.supabase.save_voiceover_path(voiceover_path, job_id)
+                        voiceover_url = voiceover_path_local  # Use local path
+                        print(f"  ✅ Voiceover saved locally: {voiceover_url}")
                     else:
                         voiceover_url = job.get("voiceover_url")
                         print(f"  ✅ Voiceover already exists")
@@ -318,19 +319,21 @@ class Worker:
                 print(f"\n[3/5] Uploading files to storage...")
                 self.supabase.update_job_status(job_id, "rendering_video")
                 
-                # Ensure voiceover is uploaded if it wasn't already
+                # Ensure voiceover is saved locally if it wasn't already
                 if voiceover_path and voiceover_path.exists() and not job.get("voiceover_url"):
-                    voiceover_url = self.supabase.upload_voiceover(voiceover_path, job_id)
-                    print(f"  ✅ Voiceover uploaded and saved: {voiceover_url}")
+                    voiceover_path_local = self.supabase.save_voiceover_path(voiceover_path, job_id)
+                    voiceover_url = voiceover_path_local  # Use local path
+                    print(f"  ✅ Voiceover saved locally: {voiceover_url}")
                 else:
                     voiceover_url = job.get("voiceover_url")
                 
                 if not video_path.exists():
                     raise Exception("Video file not found after processing")
                 
-                # Upload and save video URL immediately
-                video_url = self.supabase.upload_video(video_path, job_id)
-                print(f"  ✅ Video uploaded and saved: {video_url}")
+                # Save video locally with unique name
+                video_path_local = self.supabase.save_video_path(video_path, job_id)
+                video_url = video_path_local  # Use local path
+                print(f"  ✅ Video saved locally: {video_url}")
                 
                 # If this was a single-step action, mark as ready for next step
                 if action_needed == "create_video" and not run_all:

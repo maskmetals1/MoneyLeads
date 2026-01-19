@@ -59,11 +59,30 @@ class VideoWorker(BaseWorker):
             print(f"❌ Voiceover path not found for job {job_id}")
             return False
         
-        # Check if voiceover_url is a local path and verify it exists
-        voiceover_path = Path(voiceover_url)
-        if not voiceover_path.exists():
-            print(f"❌ Voiceover file not found at: {voiceover_url}")
-            return False
+        # Check if voiceover_url is a local path or URL
+        if voiceover_url.startswith('http://') or voiceover_url.startswith('https://'):
+            # Download from Supabase (backward compatibility for old jobs)
+            print(f"  📥 Downloading voiceover from URL (backward compatibility)...")
+            import requests
+            temp_dir = Path(f"/tmp/youtube_automation_{job_id}")
+            temp_dir.mkdir(parents=True, exist_ok=True)
+            voiceover_path = temp_dir / "voiceover.mp3"
+            
+            response = requests.get(voiceover_url, stream=True)
+            response.raise_for_status()
+            
+            with open(voiceover_path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            
+            print(f"  ✅ Voiceover downloaded from URL")
+        else:
+            # Use local file path
+            voiceover_path = Path(voiceover_url)
+            if not voiceover_path.exists():
+                print(f"❌ Voiceover file not found at: {voiceover_url}")
+                return False
+            print(f"  ✅ Using local voiceover: {voiceover_path}")
         
         try:
             print(f"\n[1/3] Rendering video...")
