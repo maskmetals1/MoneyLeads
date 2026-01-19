@@ -121,7 +121,7 @@ class YouTubeWorker(BaseWorker):
         video_url = job.get("video_url")
         tags = job.get("tags", [])
         metadata = job.get("metadata", {})
-        privacy_status = metadata.get("privacy_status", "private")
+        privacy_status = metadata.get("privacy_status", "public")  # Default to public
         
         if not title:
             print(f"❌ Title not found for job {job_id}")

@@ -136,7 +136,8 @@ class YouTubeUploader:
                 'categoryId': category_id
             },
             'status': {
-                'privacyStatus': privacy_status
+                'privacyStatus': privacy_status,
+                'selfDeclaredMadeForKids': False  # Set to "No, it's not made for kids"
             }
         }
         

@@ -102,7 +102,7 @@ class Worker:
                 title = job.get("title", topic)
                 description = job.get("description", "")
                 tags = job.get("tags", [])
-                privacy_status = metadata.get("privacy_status", "private")
+                privacy_status = metadata.get("privacy_status", "public")
                 
                 # Upload to YouTube
                 print(f"\n[2/3] Uploading to YouTube...")
@@ -164,7 +164,7 @@ class Worker:
                 title = job.get("title", job.get("topic", "Untitled Video"))
                 description = job.get("description", "")
                 tags = job.get("tags", [])
-                privacy_status = metadata.get("privacy_status", "private")
+                privacy_status = metadata.get("privacy_status", "public")
                 
                 # Upload to YouTube
                 youtube_result = self.youtube_uploader.upload_video(
@@ -379,7 +379,7 @@ class Worker:
                     title=title,
                     description=description,
                     tags=tags if isinstance(tags, list) else [],
-                    privacy_status="private"  # Start as private, can change later
+                    privacy_status="public"  # Default to public
                 )
                 
                 youtube_video_id = youtube_result["video_id"]
