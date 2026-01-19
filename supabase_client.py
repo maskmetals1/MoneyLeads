@@ -6,8 +6,9 @@ Handles all Supabase database and storage operations
 from typing import Optional, List, Dict, Any
 from pathlib import Path
 from supabase import create_client, Client
-from config import SUPABASE_URL, SUPABASE_SERVICE_KEY, STORAGE_BUCKET_VOICEOVERS, STORAGE_BUCKET_RENDERS, STORAGE_BUCKET_SCRIPTS
+from config import SUPABASE_URL, SUPABASE_SERVICE_KEY, STORAGE_BUCKET_VOICEOVERS, STORAGE_BUCKET_RENDERS, STORAGE_BUCKET_SCRIPTS, LOCAL_VIDEOS_DIR, LOCAL_VOICEOVERS_DIR
 import uuid
+import shutil
 from datetime import datetime
 
 
@@ -122,25 +123,58 @@ class SupabaseClient:
         url_result = self.client.storage.from_(bucket).get_public_url(file_name)
         return url_result
     
+    def save_voiceover_path(self, file_path: Path, job_id: str) -> str:
+        """Save voiceover file locally with unique name and return the local path"""
+        if not file_path.exists():
+            raise FileNotFoundError(f"File not found: {file_path}")
+        
+        # Generate unique filename: job_id_timestamp_uuid.mp3
+        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        unique_id = str(uuid.uuid4())[:8]
+        filename = f"{job_id}_{timestamp}_{unique_id}.mp3"
+        
+        # Save to local storage directory
+        local_path = LOCAL_VOICEOVERS_DIR / filename
+        
+        # Copy file to local storage
+        shutil.copy2(file_path, local_path)
+        
+        # Store absolute path in database
+        absolute_path = str(local_path.absolute())
+        self.update_job_status(job_id, status=None, voiceover_url=absolute_path)
+        
+        return absolute_path
+    
+    def save_video_path(self, file_path: Path, job_id: str) -> str:
+        """Save video file locally with unique name and return the local path"""
+        if not file_path.exists():
+            raise FileNotFoundError(f"File not found: {file_path}")
+        
+        # Generate unique filename: job_id_timestamp_uuid.mp4
+        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        unique_id = str(uuid.uuid4())[:8]
+        filename = f"{job_id}_{timestamp}_{unique_id}.mp4"
+        
+        # Save to local storage directory
+        local_path = LOCAL_VIDEOS_DIR / filename
+        
+        # Copy file to local storage
+        shutil.copy2(file_path, local_path)
+        
+        # Store absolute path in database
+        absolute_path = str(local_path.absolute())
+        self.update_job_status(job_id, status=None, video_url=absolute_path)
+        
+        return absolute_path
+    
+    # Keep old methods for backward compatibility (if needed)
     def upload_voiceover(self, file_path: Path, job_id: str) -> str:
-        """Upload voiceover MP3 file"""
-        file_name = f"{job_id}/voiceover.mp3"
-        url = self.upload_file(file_path, STORAGE_BUCKET_VOICEOVERS, file_name)
-        
-        # Update job with voiceover URL
-        self.update_job_status(job_id, status=None, voiceover_url=url)
-        
-        return url
+        """Legacy method - now saves locally instead of uploading"""
+        return self.save_voiceover_path(file_path, job_id)
     
     def upload_video(self, file_path: Path, job_id: str) -> str:
-        """Upload rendered MP4 file"""
-        file_name = f"{job_id}/video.mp4"
-        url = self.upload_file(file_path, STORAGE_BUCKET_RENDERS, file_name)
-        
-        # Update job with video URL
-        self.update_job_status(job_id, status=None, video_url=url)
-        
-        return url
+        """Legacy method - now saves locally instead of uploading"""
+        return self.save_video_path(file_path, job_id)
     
     def upload_script(self, file_path: Path, job_id: str) -> str:
         """Upload script text file (optional)"""

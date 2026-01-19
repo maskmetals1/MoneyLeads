@@ -72,17 +72,17 @@ class VoiceoverWorker(BaseWorker):
             if not voiceover_path.exists():
                 raise Exception("Voiceover file not found after processing")
             
-            # Update sub-status to uploading
-            print(f"\n[2/2] Uploading voiceover to Supabase...")
-            current_metadata["sub_status"] = "uploading_voiceover"
+            # Update sub-status to saving
+            print(f"\n[2/2] Saving voiceover locally...")
+            current_metadata["sub_status"] = "saving_voiceover"
             self.supabase.update_job_status(job_id, status=None, metadata=current_metadata)
             
             # Use the voiceover path directly (no need to copy)
             worker_voiceover_path = voiceover_path
             
-            # Upload and save voiceover URL immediately
-            voiceover_url = self.supabase.upload_voiceover(worker_voiceover_path, job_id)
-            print(f"  ✅ Voiceover uploaded and saved: {voiceover_url}")
+            # Save voiceover locally with unique name
+            voiceover_path_local = self.supabase.save_voiceover_path(worker_voiceover_path, job_id)
+            print(f"  ✅ Voiceover saved locally: {voiceover_path_local}")
             
             # Update action_needed based on original action
             current_job = self.supabase.get_job(job_id)

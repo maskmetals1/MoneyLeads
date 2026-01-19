@@ -77,13 +77,14 @@ class VideoProcessor:
             return False, None
         # Note: Don't cleanup temp_dir here - let the caller handle it
     
-    def process_video(self, script_text: str, output_path: Path) -> Tuple[bool, Optional[float]]:
+    def process_video(self, script_text: str, output_path: Path, voiceover_path: Optional[Path] = None) -> Tuple[bool, Optional[float]]:
         """
         Process a complete video from script text
         
         Args:
             script_text: The video script text
             output_path: Where to save the final video
+            voiceover_path: Optional path to existing voiceover file (if None, will generate)
         
         Returns:
             (success: bool, duration: float or None)
@@ -93,14 +94,27 @@ class VideoProcessor:
         self.voiceover_path = None
         
         try:
-            # Step 1: Generate voiceover
-            audio_path = self.temp_dir / "voiceover.mp3"
-            success, duration = generate_voiceover(script_text, audio_path, self.voice)
-            if not success:
-                return False, None
-            
-            # Store voiceover path for later access
-            self.voiceover_path = audio_path
+            # Step 1: Use existing voiceover or generate new one
+            if voiceover_path and voiceover_path.exists():
+                # Use existing voiceover file
+                import shutil
+                audio_path = self.temp_dir / "voiceover.mp3"
+                shutil.copy2(voiceover_path, audio_path)
+                # Get duration from existing file
+                import moviepy.editor as mp
+                audio_clip = mp.AudioFileClip(str(audio_path))
+                duration = audio_clip.duration
+                audio_clip.close()
+                self.voiceover_path = audio_path
+            else:
+                # Generate voiceover
+                audio_path = self.temp_dir / "voiceover.mp3"
+                success, duration = generate_voiceover(script_text, audio_path, self.voice)
+                if not success:
+                    return False, None
+                
+                # Store voiceover path for later access
+                self.voiceover_path = audio_path
             
             # Step 2: Compile background videos
             video_clip = compile_background_videos(self.video_folder, duration)

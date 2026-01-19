@@ -39,7 +39,7 @@ class VideoWorker(BaseWorker):
         if not job.get("script"):
             missing.append("script")
         
-        # Voiceover URL is required
+        # Voiceover path/URL is required (can be local path or URL)
         if not job.get("voiceover_url"):
             missing.append("voiceover_url")
         
@@ -56,7 +56,13 @@ class VideoWorker(BaseWorker):
             return False
         
         if not voiceover_url:
-            print(f"❌ Voiceover URL not found for job {job_id}")
+            print(f"❌ Voiceover path not found for job {job_id}")
+            return False
+        
+        # Check if voiceover_url is a local path and verify it exists
+        voiceover_path = Path(voiceover_url)
+        if not voiceover_path.exists():
+            print(f"❌ Voiceover file not found at: {voiceover_url}")
             return False
         
         try:
@@ -74,8 +80,8 @@ class VideoWorker(BaseWorker):
             
             video_path = temp_dir / "video.mp4"
             
-            # Process video (single attempt, no retries)
-            success, duration = self.video_processor.process_video(script, video_path)
+            # Process video using existing voiceover file (single attempt, no retries)
+            success, duration = self.video_processor.process_video(script, video_path, voiceover_path=voiceover_path)
             
             if not success:
                 raise Exception("Video processing failed")
@@ -83,14 +89,14 @@ class VideoWorker(BaseWorker):
             if not video_path.exists():
                 raise Exception("Video file not found after processing")
             
-            # Update sub-status to uploading
-            print(f"\n[2/3] Uploading video to Supabase...")
-            current_metadata["sub_status"] = "uploading_video"
+            # Update sub-status to saving
+            print(f"\n[2/3] Saving video locally...")
+            current_metadata["sub_status"] = "saving_video"
             self.supabase.update_job_status(job_id, status=None, metadata=current_metadata)
             
-            # Upload and save video URL immediately
-            video_url = self.supabase.upload_video(video_path, job_id)
-            print(f"  ✅ Video uploaded and saved: {video_url}")
+            # Save video locally with unique name
+            video_path_local = self.supabase.save_video_path(video_path, job_id)
+            print(f"  ✅ Video saved locally: {video_path_local}")
             
             # Clear sub_status
             current_metadata.pop("sub_status", None)

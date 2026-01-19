@@ -63,25 +63,32 @@ class YouTubeWorker(BaseWorker):
             return False
         
         try:
-            print(f"\n[1/2] Downloading video...")
+            print(f"\n[1/2] Locating video file...")
             self.supabase.update_job_status(job_id, "uploading")
             
-            # Create temp directory for this job
-            temp_dir = Path(f"/tmp/youtube_automation_{job_id}")
-            temp_dir.mkdir(parents=True, exist_ok=True)
-            
-            video_path = temp_dir / "video.mp4"
-            
-            # Download video from Supabase Storage
-            print(f"  📥 Downloading video from storage...")
-            response = requests.get(video_url, stream=True)
-            response.raise_for_status()
-            
-            with open(video_path, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
-            
-            print(f"  ✅ Video downloaded")
+            temp_dir = None
+            # Check if video_url is a local path or URL
+            if video_url.startswith('http://') or video_url.startswith('https://'):
+                # Download from URL (backward compatibility)
+                print(f"  📥 Downloading video from URL...")
+                temp_dir = Path(f"/tmp/youtube_automation_{job_id}")
+                temp_dir.mkdir(parents=True, exist_ok=True)
+                video_path = temp_dir / "video.mp4"
+                
+                response = requests.get(video_url, stream=True)
+                response.raise_for_status()
+                
+                with open(video_path, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                
+                print(f"  ✅ Video downloaded")
+            else:
+                # Use local file path directly
+                video_path = Path(video_url)
+                if not video_path.exists():
+                    raise FileNotFoundError(f"Video file not found at local path: {video_path}")
+                print(f"  ✅ Using local video: {video_path}")
             
             # Upload to YouTube
             print(f"\n[2/2] Uploading to YouTube...")
@@ -109,11 +116,12 @@ class YouTubeWorker(BaseWorker):
             current_metadata.pop("missing_dependencies", None)
             self.supabase.update_job_status(job_id, "completed", metadata=current_metadata)
             
-            # Cleanup
-            try:
-                shutil.rmtree(temp_dir)
-            except:
-                pass
+            # Cleanup temp directory only if we downloaded a file
+            if temp_dir:
+                try:
+                    shutil.rmtree(temp_dir)
+                except:
+                    pass
             
             print(f"\n✅ YouTube upload complete!")
             return True

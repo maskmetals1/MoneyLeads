@@ -1379,14 +1379,30 @@ export default function Home() {
                               <h4>URLs</h4>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                                 {job.voiceover_url && (
-                                  <a href={job.voiceover_url} target="_blank" rel="noopener noreferrer">
-                                    🎤 Voiceover
-                                  </a>
+                                  <div>
+                                    {job.voiceover_url.startsWith('http') ? (
+                                      <a href={job.voiceover_url} target="_blank" rel="noopener noreferrer">
+                                        🎤 Voiceover (Online)
+                                      </a>
+                                    ) : (
+                                      <div style={{ fontSize: '12px', color: '#666' }}>
+                                        🎤 Voiceover: <code style={{ fontSize: '11px', backgroundColor: '#f0f0f0', padding: '2px 4px', borderRadius: '3px' }}>{job.voiceover_url}</code>
+                                      </div>
+                                    )}
+                                  </div>
                                 )}
                                 {job.video_url && (
-                                  <a href={job.video_url} target="_blank" rel="noopener noreferrer">
-                                    📹 Video
-                                  </a>
+                                  <div>
+                                    {job.video_url.startsWith('http') ? (
+                                      <a href={job.video_url} target="_blank" rel="noopener noreferrer">
+                                        📹 Video (Online)
+                                      </a>
+                                    ) : (
+                                      <div style={{ fontSize: '12px', color: '#666' }}>
+                                        📹 Video: <code style={{ fontSize: '11px', backgroundColor: '#f0f0f0', padding: '2px 4px', borderRadius: '3px' }}>{job.video_url}</code>
+                                      </div>
+                                    )}
+                                  </div>
                                 )}
                                 {job.youtube_url && (
                                   <a href={job.youtube_url} target="_blank" rel="noopener noreferrer">
@@ -1394,7 +1410,7 @@ export default function Home() {
                                   </a>
                                 )}
                                 {!job.voiceover_url && !job.video_url && !job.youtube_url && (
-                                  <p style={{ color: '#999', fontSize: '13px' }}>No URLs available</p>
+                                  <p style={{ color: '#999', fontSize: '13px' }}>No files available</p>
                                 )}
                               </div>
                             </div>
