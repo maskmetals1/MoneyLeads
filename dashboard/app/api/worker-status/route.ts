@@ -70,7 +70,10 @@ export async function GET(request: NextRequest) {
         
         // Group by worker type
         if (jobsByWorker[workerType]) {
-          jobsByWorker[workerType].push(processingJob)
+          jobsByWorker[workerType].push({
+            ...processingJob,
+            subStatus: job.metadata?.sub_status || null
+          })
         }
       }
 

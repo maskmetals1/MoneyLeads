@@ -27,8 +27,8 @@ interface WorkerStatus {
   workersRunning: boolean
   statusCounts: Record<string, number>
   pendingJobs: Array<{ id: string; topic: string; action: string; fullId?: string }>
-  processingJobs: Array<{ id: string; topic: string; title?: string; status: string; workerType?: string; updatedAt?: string; startedAt?: string; fullId?: string }>
-  jobsByWorker?: Record<string, Array<{ id: string; topic: string; title?: string; status: string; updatedAt?: string; startedAt?: string }>>
+  processingJobs: Array<{ id: string; topic: string; title?: string; status: string; subStatus?: string | null; workerType?: string; updatedAt?: string; startedAt?: string; fullId?: string }>
+  jobsByWorker?: Record<string, Array<{ id: string; topic: string; title?: string; status: string; subStatus?: string | null; updatedAt?: string; startedAt?: string }>>
   recentActivity: Array<{ id: string; topic: string; status: string; minutesAgo: number; updatedAt?: string }>
   totalJobs: number
   timestamp: string
