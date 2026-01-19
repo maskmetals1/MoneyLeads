@@ -302,15 +302,23 @@ class Worker:
                 temp_dir.mkdir(parents=True, exist_ok=True)
                 
                 if voiceover_url:
-                    # Download existing voiceover
-                    import requests
-                    voiceover_path = temp_dir / "voiceover.mp3"
-                    response = requests.get(voiceover_url, stream=True)
-                    response.raise_for_status()
-                    with open(voiceover_path, 'wb') as f:
-                        for chunk in response.iter_content(chunk_size=8192):
-                            f.write(chunk)
-                    print(f"  ✅ Using existing voiceover")
+                    # Check if voiceover_url is a local path or URL
+                    if voiceover_url.startswith('http://') or voiceover_url.startswith('https://'):
+                        # Download from Supabase (backward compatibility for old jobs)
+                        import requests
+                        voiceover_path = temp_dir / "voiceover.mp3"
+                        response = requests.get(voiceover_url, stream=True)
+                        response.raise_for_status()
+                        with open(voiceover_path, 'wb') as f:
+                            for chunk in response.iter_content(chunk_size=8192):
+                                f.write(chunk)
+                        print(f"  ✅ Downloaded existing voiceover from URL")
+                    else:
+                        # Use local file path
+                        voiceover_path = Path(voiceover_url)
+                        if not voiceover_path.exists():
+                            raise Exception(f"Voiceover file not found at local path: {voiceover_url}")
+                        print(f"  ✅ Using existing local voiceover: {voiceover_path}")
                 else:
                     raise Exception("Voiceover required but not found")
             
