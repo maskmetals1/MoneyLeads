@@ -23,7 +23,8 @@ class BaseWorker:
         self.supabase = SupabaseClient()
         self.active_jobs = set()  # Track jobs currently being processed
         self.active_jobs_lock = threading.Lock()  # Lock for thread-safe access
-        print(f"🚀 Initializing {worker_name}...")
+        self.pid = os.getpid()  # Store process ID for display in frontend
+        print(f"🚀 Initializing {worker_name}... (PID: {self.pid})")
     
     def check_dependencies(self, job: Dict[str, Any]) -> Tuple[bool, List[str]]:
         """
