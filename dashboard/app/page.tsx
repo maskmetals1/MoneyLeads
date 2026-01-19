@@ -850,7 +850,7 @@ export default function Home() {
           </div>
           )}
           
-          {!workerStatus.workersRunning && workerStatus.pendingJobs.length > 0 && (
+          {workerStatus && !workerProcesses?.summary.allRunning && workerStatus.pendingJobs.length > 0 && (
             <div style={{ 
               padding: '10px', 
               backgroundColor: '#fff3cd', 
@@ -858,14 +858,14 @@ export default function Home() {
               borderRadius: '4px',
               marginTop: '10px'
             }}>
-              ⚠️ <strong>Warning:</strong> You have {workerStatus.pendingJobs.length} pending job(s) but no workers detected. 
-              Start workers to process jobs: <code>./start_workers.sh</code>
+              ⚠️ <strong>Warning:</strong> You have {workerStatus.pendingJobs.length} pending job(s) but {workerProcesses?.summary.running === 0 ? 'no workers detected' : `only ${workerProcesses?.summary.running}/${workerProcesses?.summary.total} workers running`}. 
+              Start workers to process jobs: <code>./start_moneyleads_workers.sh</code>
             </div>
           )}
           
           <div style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
             Last updated: {lastRefresh.toLocaleTimeString()} | 
-            Total jobs: {workerStatus.totalJobs} | 
+            {workerStatus && `Total jobs: ${workerStatus.totalJobs} | `}
             Auto-refreshes every 10 seconds
           </div>
         </div>
