@@ -22,6 +22,14 @@ export async function GET(request: NextRequest) {
     const pendingJobs: any[] = []
     const processingJobs: any[] = []
     const recentActivity: any[] = []
+    
+    // Group processing jobs by worker type
+    const jobsByWorker: Record<string, any[]> = {
+      'Script Worker': [],
+      'Voiceover Worker': [],
+      'Video Worker': [],
+      'YouTube Worker': []
+    }
 
     for (const job of jobs || []) {
       const status = job.status || 'unknown'
@@ -46,13 +54,23 @@ export async function GET(request: NextRequest) {
         }
         const workerType = workerTypeMap[status] || 'Unknown Worker'
         
-        processingJobs.push({
+        const processingJob = {
           id: job.id.substring(0, 8),
+          fullId: job.id,
           topic: job.topic || 'N/A',
+          title: job.title || 'N/A',
           status: status,
           workerType: workerType,
-          updatedAt: job.updated_at
-        })
+          updatedAt: job.updated_at,
+          startedAt: job.started_at || job.updated_at
+        }
+        
+        processingJobs.push(processingJob)
+        
+        // Group by worker type
+        if (jobsByWorker[workerType]) {
+          jobsByWorker[workerType].push(processingJob)
+        }
       }
 
       // Recent activity (last 10 minutes)
@@ -87,6 +105,7 @@ export async function GET(request: NextRequest) {
       statusCounts,
       pendingJobs: pendingJobs.slice(0, 10),
       processingJobs: processingJobs.slice(0, 10),
+      jobsByWorker, // Grouped by worker type
       recentActivity: recentActivity.slice(0, 10),
       totalJobs: jobs?.length || 0,
       timestamp: new Date().toISOString()

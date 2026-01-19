@@ -26,10 +26,32 @@ interface Job {
 interface WorkerStatus {
   workersRunning: boolean
   statusCounts: Record<string, number>
-  pendingJobs: Array<{ id: string; topic: string; action: string }>
-  processingJobs: Array<{ id: string; topic: string; status: string; workerType?: string }>
-  recentActivity: Array<{ id: string; topic: string; status: string; minutesAgo: number }>
+  pendingJobs: Array<{ id: string; topic: string; action: string; fullId?: string }>
+  processingJobs: Array<{ id: string; topic: string; title?: string; status: string; workerType?: string; updatedAt?: string; startedAt?: string; fullId?: string }>
+  jobsByWorker?: Record<string, Array<{ id: string; topic: string; title?: string; status: string; updatedAt?: string; startedAt?: string }>>
+  recentActivity: Array<{ id: string; topic: string; status: string; minutesAgo: number; updatedAt?: string }>
   totalJobs: number
+  timestamp: string
+}
+
+interface WorkerProcess {
+  name: string
+  file: string
+  emoji: string
+  running: boolean
+  pid?: string
+  instanceCount: number
+  info?: string
+  error?: string
+}
+
+interface WorkerProcesses {
+  workers: WorkerProcess[]
+  summary: {
+    running: number
+    total: number
+    allRunning: boolean
+  }
   timestamp: string
 }
 
@@ -41,6 +63,7 @@ export default function Home() {
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
   const [processing, setProcessing] = useState<Set<string>>(new Set())
   const [workerStatus, setWorkerStatus] = useState<WorkerStatus | null>(null)
+  const [workerProcesses, setWorkerProcesses] = useState<WorkerProcesses | null>(null)
   const [showStatusPanel, setShowStatusPanel] = useState(false)
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
   const [editingJob, setEditingJob] = useState<string | null>(null)
@@ -80,12 +103,21 @@ export default function Home() {
 
   const loadWorkerStatus = async () => {
     try {
-      const response = await fetch('/api/worker-status')
-      if (response.ok) {
-        const data = await response.json()
-        setWorkerStatus(data)
-        setLastRefresh(new Date())
+      // Load job status
+      const statusResponse = await fetch('/api/worker-status')
+      if (statusResponse.ok) {
+        const statusData = await statusResponse.json()
+        setWorkerStatus(statusData)
       }
+      
+      // Load actual worker processes
+      const processesResponse = await fetch('/api/worker-processes')
+      if (processesResponse.ok) {
+        const processesData = await processesResponse.json()
+        setWorkerProcesses(processesData)
+      }
+      
+      setLastRefresh(new Date())
     } catch (error) {
       console.error('Error loading worker status:', error)
     }
@@ -596,25 +628,82 @@ export default function Home() {
         </div>
       </div>
 
-      {showStatusPanel && workerStatus && (
+      {showStatusPanel && (
         <div className="card" style={{ marginBottom: '20px', backgroundColor: '#f9f9f9' }}>
           <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ 
               width: '12px', 
               height: '12px', 
               borderRadius: '50%', 
-              backgroundColor: workerStatus.workersRunning ? '#00aa00' : '#ff0000',
+              backgroundColor: workerProcesses?.summary.allRunning ? '#00aa00' : workerProcesses?.summary.running ? '#ffa500' : '#ff0000',
               display: 'inline-block',
-              animation: workerStatus.workersRunning ? 'pulse 2s infinite' : 'none'
+              animation: workerProcesses?.summary.running ? 'pulse 2s infinite' : 'none'
             }}></span>
-            Worker Status {workerStatus.workersRunning ? '(Running)' : '(Not Detected)'}
+            Worker Status {
+              workerProcesses?.summary.allRunning ? `(${workerProcesses.summary.running}/${workerProcesses.summary.total} Running)` :
+              workerProcesses?.summary.running ? `(${workerProcesses.summary.running}/${workerProcesses.summary.total} Running - Partial)` :
+              '(Not Detected)'
+            }
           </h3>
           
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '15px' }}>
-            <div>
-              <strong>Job Status Summary:</strong>
-              <div style={{ marginTop: '5px', fontSize: '14px' }}>
-                {Object.entries(workerStatus.statusCounts).map(([status, count]) => {
+          {/* Worker Processes Status */}
+          {workerProcesses && (
+            <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #ddd' }}>
+              <h4 style={{ marginTop: 0, marginBottom: '15px', fontSize: '16px', fontWeight: '600' }}>Worker Processes</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '12px' }}>
+                {workerProcesses.workers.map((worker, idx) => (
+                  <div 
+                    key={idx}
+                    style={{
+                      padding: '12px',
+                      borderRadius: '6px',
+                      border: `2px solid ${worker.running ? '#00aa00' : '#ddd'}`,
+                      backgroundColor: worker.running ? '#f0fff0' : '#f9f9f9'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '20px' }}>{worker.emoji}</span>
+                      <strong style={{ fontSize: '14px', color: worker.running ? '#00aa00' : '#666' }}>
+                        {worker.name}
+                      </strong>
+                      <span style={{
+                        fontSize: '10px',
+                        padding: '2px 6px',
+                        borderRadius: '10px',
+                        backgroundColor: worker.running ? '#00aa00' : '#999',
+                        color: 'white',
+                        fontWeight: '600'
+                      }}>
+                        {worker.running ? 'RUNNING' : 'STOPPED'}
+                      </span>
+                    </div>
+                    {worker.running && (
+                      <div style={{ fontSize: '12px', color: '#666', marginTop: '6px' }}>
+                        <div>PID: {worker.pid}</div>
+                        {worker.instanceCount > 1 && (
+                          <div style={{ color: '#ffa500', fontWeight: '600' }}>
+                            ⚠️ {worker.instanceCount} instances running
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {!worker.running && (
+                      <div style={{ fontSize: '11px', color: '#999', fontStyle: 'italic', marginTop: '4px' }}>
+                        Process not detected
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {workerStatus && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '15px' }}>
+              <div>
+                <strong>Job Status Summary:</strong>
+                <div style={{ marginTop: '5px', fontSize: '14px' }}>
+                  {Object.entries(workerStatus.statusCounts).map(([status, count]) => {
                   const emoji = {
                     pending: '⏳',
                     generating_script: '📝',
@@ -636,36 +725,115 @@ export default function Home() {
             <div>
               <strong>Pending Jobs:</strong> {workerStatus.pendingJobs.length}
               {workerStatus.pendingJobs.length > 0 && (
-                <div style={{ marginTop: '5px', fontSize: '12px', maxHeight: '100px', overflowY: 'auto' }}>
+                <div style={{ marginTop: '5px', fontSize: '12px', maxHeight: '120px', overflowY: 'auto' }}>
                   {workerStatus.pendingJobs.slice(0, 5).map((job, idx) => (
-                    <div key={idx} style={{ marginBottom: '2px' }}>
-                      • {job.id}... - {job.topic.substring(0, 20)} (needs: {job.action})
+                    <div key={idx} style={{ 
+                      marginBottom: '4px', 
+                      padding: '6px', 
+                      backgroundColor: '#fff', 
+                      borderRadius: '4px',
+                      border: '1px solid #e0e0e0'
+                    }}>
+                      <div style={{ fontWeight: '600', fontSize: '11px', color: '#333' }}>
+                        {job.id}... - {job.topic.substring(0, 30)}
+                      </div>
+                      <div style={{ fontSize: '10px', color: '#666', marginTop: '2px' }}>
+                        Needs: {job.action.replace('_', ' ')}
+                      </div>
                     </div>
                   ))}
+                  {workerStatus.pendingJobs.length > 5 && (
+                    <div style={{ fontSize: '10px', color: '#999', fontStyle: 'italic', marginTop: '4px' }}>
+                      + {workerStatus.pendingJobs.length - 5} more...
+                    </div>
+                  )}
                 </div>
               )}
             </div>
             
-            <div>
-              <strong>Processing ({workerStatus.processingJobs.length}):</strong>
-              {workerStatus.processingJobs.length > 0 && (
-                <div style={{ marginTop: '5px', fontSize: '12px', maxHeight: '150px', overflowY: 'auto' }}>
-                  {workerStatus.processingJobs.map((job, idx) => (
-                    <div key={idx} style={{ marginBottom: '4px', padding: '4px', backgroundColor: '#fff', borderRadius: '4px' }}>
-                      <div style={{ fontWeight: '600', color: '#4a90e2' }}>
-                        {job.workerType || 'Unknown Worker'}
+            {/* Processing Jobs Grouped by Worker */}
+            {workerStatus.jobsByWorker && (
+              <div style={{ gridColumn: '1 / -1' }}>
+                <strong style={{ display: 'block', marginBottom: '10px' }}>Processing Jobs by Worker:</strong>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+                  {Object.entries(workerStatus.jobsByWorker).map(([workerType, jobs]) => {
+                    if (jobs.length === 0) return null
+                    
+                    const workerEmoji = {
+                      'Script Worker': '📝',
+                      'Voiceover Worker': '🎤',
+                      'Video Worker': '🎬',
+                      'YouTube Worker': '📤'
+                    }[workerType] || '⚙️'
+                    
+                    return (
+                      <div key={workerType} style={{
+                        padding: '12px',
+                        backgroundColor: '#fff',
+                        borderRadius: '6px',
+                        border: '1px solid #e0e0e0'
+                      }}>
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '6px', 
+                          marginBottom: '10px',
+                          fontWeight: '600',
+                          fontSize: '13px',
+                          color: '#4a90e2'
+                        }}>
+                          <span>{workerEmoji}</span>
+                          <span>{workerType}</span>
+                          <span style={{
+                            fontSize: '10px',
+                            padding: '2px 6px',
+                            backgroundColor: '#4a90e2',
+                            color: 'white',
+                            borderRadius: '10px'
+                          }}>
+                            {jobs.length}
+                          </span>
+                        </div>
+                        <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                          {jobs.map((job, idx) => {
+                            const startTime = job.startedAt ? new Date(job.startedAt) : new Date(job.updatedAt || '')
+                            const now = new Date()
+                            const elapsedMinutes = Math.round((now.getTime() - startTime.getTime()) / 1000 / 60)
+                            
+                            return (
+                              <div key={idx} style={{
+                                marginBottom: '8px',
+                                padding: '8px',
+                                backgroundColor: '#f9f9f9',
+                                borderRadius: '4px',
+                                border: '1px solid #e0e0e0'
+                              }}>
+                                <div style={{ fontWeight: '600', fontSize: '11px', color: '#333', marginBottom: '4px' }}>
+                                  {job.id}... - {job.topic.substring(0, 25)}
+                                </div>
+                                {job.title && job.title !== 'N/A' && (
+                                  <div style={{ fontSize: '10px', color: '#666', marginBottom: '4px', fontStyle: 'italic' }}>
+                                    "{job.title.substring(0, 40)}..."
+                                  </div>
+                                )}
+                                <div style={{ fontSize: '10px', color: '#999' }}>
+                                  Running for: {elapsedMinutes}m | Status: {job.status.replace('_', ' ')}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
                       </div>
-                      <div style={{ fontSize: '11px', color: '#666' }}>
-                        {job.id}... - {job.topic.substring(0, 25)}
-                      </div>
-                      <div style={{ fontSize: '10px', color: '#999', fontStyle: 'italic' }}>
-                        Status: {job.status.replace('_', ' ')}
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
-              )}
-            </div>
+                {workerStatus.processingJobs.length === 0 && (
+                  <div style={{ padding: '10px', textAlign: 'center', color: '#999', fontSize: '13px' }}>
+                    No jobs currently processing
+                  </div>
+                )}
+              </div>
+            )}
             
             <div>
               <strong>Recent Activity (Last 10 min):</strong> {workerStatus.recentActivity.length}
@@ -680,6 +848,7 @@ export default function Home() {
               )}
             </div>
           </div>
+          )}
           
           {!workerStatus.workersRunning && workerStatus.pendingJobs.length > 0 && (
             <div style={{ 
