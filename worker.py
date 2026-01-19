@@ -100,6 +100,9 @@ class Worker:
                 
                 # Get metadata from job
                 title = job.get("title", topic)
+                # Remove quotation marks from title (both single and double quotes)
+                if title:
+                    title = title.replace('"', '').replace("'", '').strip()
                 description = job.get("description", "")
                 tags = job.get("tags", [])
                 privacy_status = metadata.get("privacy_status", "public")
@@ -162,6 +165,9 @@ class Worker:
                 
                 # Get metadata from job
                 title = job.get("title", job.get("topic", "Untitled Video"))
+                # Remove quotation marks from title (both single and double quotes)
+                if title:
+                    title = title.replace('"', '').replace("'", '').strip()
                 description = job.get("description", "")
                 tags = job.get("tags", [])
                 privacy_status = metadata.get("privacy_status", "public")
@@ -247,6 +253,9 @@ class Worker:
                 # Use existing script
                 script = job.get("script")
                 title = job.get("title", topic)
+                # Remove quotation marks from title (both single and double quotes)
+                if title:
+                    title = title.replace('"', '').replace("'", '').strip()
                 description = job.get("description", "")
                 tags = job.get("tags", [])
                 if not script:

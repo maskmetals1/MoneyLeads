@@ -130,12 +130,13 @@ class VideoWorker(BaseWorker):
             
             # Check if all steps are complete except YouTube upload
             # If script, voiceover, and video exist but no YouTube URL, set status to "ready"
+            # Do NOT set action_needed - user must manually click "Post to YouTube" button
             if (current_job.get("script") and 
                 current_job.get("voiceover_url") and 
                 current_job.get("video_url") and 
                 not current_job.get("youtube_url")):
-                # Set action_needed to post_to_youtube so YouTube worker can pick it up
-                current_metadata["action_needed"] = "post_to_youtube"
+                # Clear action_needed - workflow stops after video creation, no automatic YouTube upload
+                current_metadata.pop("action_needed", None)
                 self.supabase.update_job_status(job_id, "ready", metadata=current_metadata)
             else:
                 # Clear action_needed - workflow stops after video creation

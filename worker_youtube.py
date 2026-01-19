@@ -127,6 +127,9 @@ class YouTubeWorker(BaseWorker):
             print(f"❌ Title not found for job {job_id}")
             return False
         
+        # Remove quotation marks from title (both single and double quotes)
+        title = title.replace('"', '').replace("'", '').strip()
+        
         if not video_url:
             print(f"❌ Video URL not found for job {job_id}")
             return False
