@@ -308,11 +308,11 @@ def create_ass_subtitles(script_text: str, word_timestamps: List[Dict], output_p
             
             f.write("[V4+ Styles]\n")
             f.write("Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n")
-            # Style: white text, 24pt font, bold, with outline
+            # Style: white text, 36pt font, bold, with outline
             # Alignment values: 1=bottom-left, 2=bottom-center, 3=bottom-right
             # Alignment=2 means bottom center
             # MarginV=20 means 20 pixels from bottom edge (very bottom)
-            f.write("Style: Word,Arial,24,&Hffffff,&Hffffff,&H000000,&H80000000,1,0,0,0,100,100,0,0,1,4,2,2,10,10,20,1\n\n")
+            f.write("Style: Word,Arial,36,&Hffffff,&Hffffff,&H000000,&H80000000,1,0,0,0,100,100,0,0,1,4,2,2,10,10,20,1\n\n")
             
             f.write("[Events]\n")
             f.write("Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n")
@@ -427,7 +427,7 @@ def render_final_video(
         cmd = [
             "ffmpeg",
             "-i", str(temp_video),
-            "-vf", f"subtitles={subtitle_path_escaped}:force_style='FontSize=24,PrimaryColour=&Hffffff,OutlineColour=&H000000,Outline=2,Alignment=2,MarginV=20,Bold=1'",
+            "-vf", f"subtitles={subtitle_path_escaped}:force_style='FontSize=36,PrimaryColour=&Hffffff,OutlineColour=&H000000,Outline=2,Alignment=2,MarginV=20,Bold=1'",
             "-c:v", "libx264",
             "-c:a", "copy",
             "-preset", "fast",  # Faster encoding
