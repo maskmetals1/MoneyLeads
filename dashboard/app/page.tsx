@@ -859,7 +859,7 @@ export default function Home() {
                                     "{job.title.substring(0, 40)}..."
                                   </div>
                                 )}
-                                <div style={{ fontSize: '10px', color: '#999' }}>
+                                <div style={{ fontSize: '8px', color: '#999' }}>
                                   Running for: {elapsedMinutes}m | Status: {job.status.replace('_', ' ')}
                                   {job.subStatus && (
                                     <span style={{ color: '#4a90e2', fontWeight: '600' }}>
