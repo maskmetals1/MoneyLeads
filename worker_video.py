@@ -60,8 +60,11 @@ class VideoWorker(BaseWorker):
             return False
         
         try:
-            print(f"\n[1/2] Rendering video...")
-            self.supabase.update_job_status(job_id, "rendering_video")
+            print(f"\n[1/3] Rendering video...")
+            current_job = self.supabase.get_job(job_id)
+            current_metadata = current_job.get("metadata", {}) if current_job else {}
+            current_metadata["sub_status"] = "rendering_video"
+            self.supabase.update_job_status(job_id, "rendering_video", metadata=current_metadata)
             
             # Create temp directory for this job (use unique name to avoid conflicts)
             import uuid
@@ -80,10 +83,17 @@ class VideoWorker(BaseWorker):
             if not video_path.exists():
                 raise Exception("Video file not found after processing")
             
+            # Update sub-status to uploading
+            print(f"\n[2/3] Uploading video to Supabase...")
+            current_metadata["sub_status"] = "uploading_video"
+            self.supabase.update_job_status(job_id, status=None, metadata=current_metadata)
+            
             # Upload and save video URL immediately
-            print(f"\n[2/2] Uploading video...")
             video_url = self.supabase.upload_video(video_path, job_id)
             print(f"  ✅ Video uploaded and saved: {video_url}")
+            
+            # Clear sub_status
+            current_metadata.pop("sub_status", None)
             
             # Clear action_needed - video creation is complete
             # Do NOT automatically post to YouTube

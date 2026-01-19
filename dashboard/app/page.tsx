@@ -172,27 +172,70 @@ export default function Home() {
     return ['generating_script', 'creating_voiceover', 'rendering_video', 'uploading'].includes(status)
   }
 
-  const getEstimatedTime = (job: Job): string | null => {
+  const getStatusMessage = (job: Job): string | null => {
     if (!isProcessing(job.status) || !job.updated_at) return null
     
+    const subStatus = job.metadata?.sub_status
     const now = new Date().getTime()
     const updated = new Date(job.updated_at).getTime()
     const elapsedMinutes = (now - updated) / 1000 / 60
     
-    // Estimated times for each step (in minutes)
-    const estimates: Record<string, number> = {
-      generating_script: 2,
-      creating_voiceover: 3,
-      rendering_video: 5,
-      uploading: 2
+    // Get status-specific messages and time estimates
+    const statusInfo: Record<string, { message: string, totalTime: number, subStatuses?: Record<string, { message: string, time: number }> }> = {
+      generating_script: {
+        message: 'Generating script...',
+        totalTime: 2.5,
+        subStatuses: {
+          generating_title_description: { message: 'Creating title & description...', time: 1 },
+          generating_script: { message: 'Writing script content...', time: 1.5 }
+        }
+      },
+      creating_voiceover: {
+        message: 'Creating voiceover...',
+        totalTime: 4,
+        subStatuses: {
+          generating_audio: { message: 'Generating audio with AI...', time: 2.5 },
+          uploading_voiceover: { message: 'Uploading to Supabase...', time: 1.5 }
+        }
+      },
+      rendering_video: {
+        message: 'Rendering video...',
+        totalTime: 8,
+        subStatuses: {
+          rendering_video: { message: 'Processing video & captions...', time: 6 },
+          uploading_video: { message: 'Uploading to Supabase...', time: 2 }
+        }
+      },
+      uploading: {
+        message: 'Uploading to YouTube...',
+        totalTime: 2
+      }
     }
     
-    const estimatedTotal = estimates[job.status] || 3
-    const remaining = Math.max(0, estimatedTotal - elapsedMinutes)
+    const info = statusInfo[job.status]
+    if (!info) return null
     
-    if (remaining <= 0) return 'Almost done...'
-    if (remaining < 1) return `${Math.round(remaining * 60)}s remaining`
-    return `${Math.round(remaining)}m remaining`
+    // If we have sub-status, use more specific estimates
+    if (subStatus && info.subStatuses && info.subStatuses[subStatus]) {
+      const subInfo = info.subStatuses[subStatus]
+      const remaining = Math.max(0, subInfo.time - elapsedMinutes)
+      
+      if (remaining <= 0) return `${subInfo.message} (almost done...)`
+      if (remaining < 0.5) return `${subInfo.message} (~${Math.round(remaining * 60)}s)`
+      return `${subInfo.message} (~${Math.round(remaining)}m)`
+    }
+    
+    // Otherwise use overall estimate
+    const remaining = Math.max(0, info.totalTime - elapsedMinutes)
+    
+    if (remaining <= 0) return `${info.message} (almost done...)`
+    if (remaining < 1) return `${info.message} (~${Math.round(remaining * 60)}s)`
+    return `${info.message} (~${Math.round(remaining)}m)`
+  }
+  
+  const getEstimatedTime = (job: Job): string | null => {
+    // Use the new getStatusMessage for better accuracy
+    return getStatusMessage(job)
   }
 
   // Check dependencies for each action

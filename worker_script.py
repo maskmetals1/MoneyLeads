@@ -59,6 +59,10 @@ class ScriptWorker(BaseWorker):
             # Step 1: Generate title and description first (separate API call)
             print(f"\n[1/3] Generating title and description...")
             # Status already set to generating_script by base_worker when claiming job
+            current_job = self.supabase.get_job(job_id)
+            current_metadata = current_job.get("metadata", {}) if current_job else {}
+            current_metadata["sub_status"] = "generating_title_description"
+            self.supabase.update_job_status(job_id, status=None, metadata=current_metadata)
             
             title, description, tags = self.script_generator.generate_title_and_description(topic)
             
@@ -76,11 +80,17 @@ class ScriptWorker(BaseWorker):
             
             # Step 2: Generate script using title as context (separate API call)
             print(f"\n[2/3] Generating script (using title as context)...")
+            current_metadata["sub_status"] = "generating_script"
+            self.supabase.update_job_status(job_id, status=None, metadata=current_metadata)
+            
             script = self.script_generator.generate_script(topic, title=title)
             
             # Save script immediately
             self.supabase.update_job_status(job_id, status=None, script=script)
             print(f"  ✅ Script generated and saved ({len(script)} chars)")
+            
+            # Clear sub_status
+            current_metadata.pop("sub_status", None)
             
             # Update action_needed based on original action
             current_job = self.supabase.get_job(job_id)

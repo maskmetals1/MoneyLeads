@@ -49,8 +49,11 @@ class VoiceoverWorker(BaseWorker):
             return False
         
         try:
-            print(f"\n[1/1] Generating voiceover...")
-            self.supabase.update_job_status(job_id, "creating_voiceover")
+            print(f"\n[1/2] Generating voiceover...")
+            current_job = self.supabase.get_job(job_id)
+            current_metadata = current_job.get("metadata", {}) if current_job else {}
+            current_metadata["sub_status"] = "generating_audio"
+            self.supabase.update_job_status(job_id, "creating_voiceover", metadata=current_metadata)
             
             # Create temp directory for this job
             temp_dir = Path(f"/tmp/youtube_automation_{job_id}")
@@ -68,6 +71,11 @@ class VoiceoverWorker(BaseWorker):
             # Verify voiceover file exists
             if not voiceover_path.exists():
                 raise Exception("Voiceover file not found after processing")
+            
+            # Update sub-status to uploading
+            print(f"\n[2/2] Uploading voiceover to Supabase...")
+            current_metadata["sub_status"] = "uploading_voiceover"
+            self.supabase.update_job_status(job_id, status=None, metadata=current_metadata)
             
             # Use the voiceover path directly (no need to copy)
             worker_voiceover_path = voiceover_path
