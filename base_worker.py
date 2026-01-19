@@ -7,6 +7,7 @@ Shared functionality for all specialized workers
 import time
 import sys
 import threading
+import datetime
 from typing import List, Dict, Any, Optional, Tuple
 from config import WORKER_POLL_INTERVAL, WORKER_MAX_CONCURRENT_JOBS
 from supabase_client import SupabaseClient
@@ -153,8 +154,33 @@ class BaseWorker:
         print(f"   Max concurrent jobs: {max_concurrent}")
         print(f"   Press Ctrl+C to stop\n")
         
+        # Send initial heartbeat by updating a dummy job's metadata
+        # This helps the frontend detect that workers are running
+        import datetime
+        heartbeat_interval = 30  # Send heartbeat every 30 seconds
+        last_heartbeat = 0
+        
         try:
             while True:
+                # Send heartbeat periodically to indicate worker is alive
+                current_time = time.time()
+                if current_time - last_heartbeat >= heartbeat_interval:
+                    # Update any job's metadata with a heartbeat timestamp
+                    # We'll use a special approach: update the most recent job's metadata
+                    try:
+                        all_jobs = self.supabase.get_all_jobs(limit=1)
+                        if all_jobs:
+                            # Update metadata with heartbeat
+                            job = all_jobs[0]
+                            metadata = job.get("metadata", {})
+                            metadata[f"{self.worker_name.lower().replace(' ', '_')}_heartbeat"] = datetime.datetime.utcnow().isoformat()
+                            # Only update metadata, not status
+                            self.supabase.update_job_status(job["id"], status=None, metadata=metadata)
+                    except Exception as e:
+                        # Don't fail if heartbeat update fails
+                        pass
+                    last_heartbeat = current_time
+                
                 # Check how many jobs we can start
                 with self.active_jobs_lock:
                     available_slots = max_concurrent - len(self.active_jobs)
