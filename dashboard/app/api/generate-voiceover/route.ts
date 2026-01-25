@@ -11,6 +11,10 @@ const execAsync = promisify(exec)
 // Check if we're running locally (for development) or on Vercel
 const isLocal = process.env.VERCEL !== '1'
 
+// Configure route segment for longer timeout
+export const maxDuration = 60
+export const runtime = 'nodejs'
+
 // Handle OPTIONS for CORS
 export async function OPTIONS() {
   return new NextResponse(null, {
@@ -62,23 +66,33 @@ async function generateWithNodeTTS(script: string, voice: string) {
   try {
     console.log(`Generating voiceover with voice: ${voice}, script length: ${script.length}`)
     
+    // Add timeout wrapper (50 seconds to be safe, leaving buffer for processing)
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Voiceover generation timed out after 50 seconds')), 50000)
+    })
+    
     // Import the package
     const edgeTTSModule = await import('edge-tts-universal')
     
     // Try UniversalEdgeTTS first (works in all environments)
     let result: any
     
-    if (edgeTTSModule.UniversalEdgeTTS) {
-      console.log('Using UniversalEdgeTTS...')
-      const tts = new edgeTTSModule.UniversalEdgeTTS(script.trim(), voice)
-      result = await tts.synthesize()
-    } else if (edgeTTSModule.EdgeTTS) {
-      console.log('Using EdgeTTS (Node.js)...')
-      const tts = new edgeTTSModule.EdgeTTS(script.trim(), voice)
-      result = await tts.synthesize()
-    } else {
-      throw new Error('No compatible TTS class found in edge-tts-universal')
-    }
+    const synthesizePromise = (async () => {
+      if (edgeTTSModule.UniversalEdgeTTS) {
+        console.log('Using UniversalEdgeTTS...')
+        const tts = new edgeTTSModule.UniversalEdgeTTS(script.trim(), voice)
+        return await tts.synthesize()
+      } else if (edgeTTSModule.EdgeTTS) {
+        console.log('Using EdgeTTS (Node.js)...')
+        const tts = new edgeTTSModule.EdgeTTS(script.trim(), voice)
+        return await tts.synthesize()
+      } else {
+        throw new Error('No compatible TTS class found in edge-tts-universal')
+      }
+    })()
+    
+    // Race between synthesis and timeout
+    result = await Promise.race([synthesizePromise, timeoutPromise]) as any
     
     console.log('Synthesize completed, processing audio...')
     
@@ -121,8 +135,8 @@ async function generateWithNodeTTS(script: string, voice: string) {
     const errorMessage = error.message || 'Unknown error'
     
     // Check for specific error types
-    if (error.message?.includes('timeout') || error.name === 'TimeoutError') {
-      throw new Error('Voiceover generation timed out. The script might be too long. Please try a shorter script.')
+    if (error.message?.includes('timeout') || error.name === 'TimeoutError' || error.message?.includes('timed out')) {
+      throw new Error('Voiceover generation timed out. The script might be too long. Please try a shorter script or split it into smaller parts.')
     }
     
     if (error.message?.includes('network') || error.message?.includes('fetch')) {

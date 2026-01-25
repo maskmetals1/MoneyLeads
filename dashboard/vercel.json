@@ -3,7 +3,8 @@
   "buildCommand": "npm run build",
   "functions": {
     "app/api/generate-voiceover/route.ts": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "memory": 1024
     }
   }
 }
