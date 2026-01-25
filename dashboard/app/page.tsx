@@ -6,16 +6,6 @@ import { useState } from 'react'
 const VOICES = [
   { value: 'en-AU-WilliamNeural', label: 'William (Australian, Male)' },
   { value: 'en-US-SteffanNeural', label: 'Steffan (US, Male)' },
-  { value: 'en-US-ChristopherNeural', label: 'Christopher (US, Male - Deep)' },
-  { value: 'en-US-EricNeural', label: 'Eric (US, Male - Energetic)' },
-  { value: 'en-US-BrianNeural', label: 'Brian (US, Male - Calm)' },
-  { value: 'en-US-DavisNeural', label: 'Davis (US, Male - Confident)' },
-  { value: 'en-US-GuyNeural', label: 'Guy (US, Male - Friendly)' },
-  { value: 'en-US-RogerNeural', label: 'Roger (US, Male - Expressive)' },
-  { value: 'en-US-JennyNeural', label: 'Jenny (US, Female - Professional)' },
-  { value: 'en-US-MichelleNeural', label: 'Michelle (US, Female - Warm)' },
-  { value: 'en-US-AriaNeural', label: 'Aria (US, Female - Expressive)' },
-  { value: 'en-GB-RyanNeural', label: 'Ryan (British, Male)' },
 ]
 
 export default function Home() {
