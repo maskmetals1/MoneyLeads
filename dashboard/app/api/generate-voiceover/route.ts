@@ -27,16 +27,8 @@ export async function POST(request: NextRequest) {
       return await generateWithPython(script)
     }
 
-    // For Vercel, Python functions are not easily supported in Next.js projects
-    // Return a helpful error message suggesting alternatives
-    return NextResponse.json(
-      { 
-        error: 'Voiceover generation is only available in local development.',
-        hint: 'Python serverless functions are not supported in this Next.js setup on Vercel. To use this feature, run the app locally with `npm run dev`. For production, consider using a TTS API service like ElevenLabs, Google Cloud TTS, or Azure Cognitive Services.',
-        localOnly: true
-      },
-      { status: 501 }
-    )
+    // For Vercel, use Node.js edge-tts package
+    return await generateWithNodeTTS(script)
 
   } catch (error: any) {
     console.error('Error in generate-voiceover API:', error)
@@ -44,6 +36,63 @@ export async function POST(request: NextRequest) {
       { error: error.message || 'Internal server error' },
       { status: 500 }
     )
+  }
+}
+
+async function generateWithNodeTTS(script: string) {
+  // Use edge-tts CLI via npx (works on Vercel)
+  return await generateWithEdgeTTSCommand(script)
+}
+
+async function generateWithEdgeTTSCommand(script: string) {
+  const tempDir = tmpdir()
+  const scriptId = `voiceover_${Date.now()}_${Math.random().toString(36).substring(7)}`
+  const outputFilePath = join(tempDir, `${scriptId}.mp3`)
+
+  try {
+    // Escape script text for shell command
+    const escapedScript = script.trim().replace(/"/g, '\\"').replace(/\$/g, '\\$').replace(/`/g, '\\`')
+    
+    // Use edge-tts CLI - install it first if needed, then use it
+    // Note: On Vercel, we need to use npx to run edge-tts
+    const command = `npx -y edge-tts --voice "en-AU-WilliamNeural" --text "${escapedScript}" --write "${outputFilePath}"`
+
+    console.log('Running edge-tts command...')
+
+    const { stdout, stderr } = await execAsync(command, {
+      timeout: 60000, // 60 second timeout
+      maxBuffer: 10 * 1024 * 1024 // 10MB buffer
+    })
+
+    if (stderr && !stderr.includes('Saved')) {
+      console.log('edge-tts stderr:', stderr)
+    }
+
+    // Wait a bit for file to be written
+    await new Promise(resolve => setTimeout(resolve, 1000))
+
+    if (!existsSync(outputFilePath)) {
+      throw new Error('Audio file was not created by edge-tts')
+    }
+
+    const fs = require('fs')
+    const audioBuffer = await fs.promises.readFile(outputFilePath)
+
+    // Clean up
+    await unlink(outputFilePath).catch(() => {})
+
+    const base64Audio = audioBuffer.toString('base64')
+    const dataUrl = `data:audio/mpeg;base64,${base64Audio}`
+
+    return NextResponse.json({
+      url: dataUrl,
+      message: 'Voiceover generated successfully'
+    })
+
+  } catch (error: any) {
+    await unlink(outputFilePath).catch(() => {})
+    console.error('Edge-TTS command error:', error)
+    throw new Error(`Failed to generate voiceover: ${error.message}`)
   }
 }
 

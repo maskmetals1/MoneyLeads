@@ -194,23 +194,6 @@ export default function Home() {
           </div>
         )}
 
-        <div style={{
-          marginTop: '30px',
-          paddingTop: '20px',
-          borderTop: '1px solid #ddd',
-          textAlign: 'center'
-        }}>
-          <a
-            href="/dashboard"
-            style={{
-              color: '#4a90e2',
-              textDecoration: 'none',
-              fontSize: '14px'
-            }}
-          >
-            Go to Dashboard →
-          </a>
-        </div>
       </div>
     </div>
   )
