@@ -2,8 +2,25 @@
 
 import { useState } from 'react'
 
+// Available voices
+const VOICES = [
+  { value: 'en-AU-WilliamNeural', label: 'William (Australian, Male)' },
+  { value: 'en-US-SteffanNeural', label: 'Steffan (US, Male)' },
+  { value: 'en-US-ChristopherNeural', label: 'Christopher (US, Male - Deep)' },
+  { value: 'en-US-EricNeural', label: 'Eric (US, Male - Energetic)' },
+  { value: 'en-US-BrianNeural', label: 'Brian (US, Male - Calm)' },
+  { value: 'en-US-DavisNeural', label: 'Davis (US, Male - Confident)' },
+  { value: 'en-US-GuyNeural', label: 'Guy (US, Male - Friendly)' },
+  { value: 'en-US-RogerNeural', label: 'Roger (US, Male - Expressive)' },
+  { value: 'en-US-JennyNeural', label: 'Jenny (US, Female - Professional)' },
+  { value: 'en-US-MichelleNeural', label: 'Michelle (US, Female - Warm)' },
+  { value: 'en-US-AriaNeural', label: 'Aria (US, Female - Expressive)' },
+  { value: 'en-GB-RyanNeural', label: 'Ryan (British, Male)' },
+]
+
 export default function Home() {
   const [script, setScript] = useState('')
+  const [selectedVoice, setSelectedVoice] = useState('en-AU-WilliamNeural')
   const [loading, setLoading] = useState(false)
   const [voiceoverUrl, setVoiceoverUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -24,7 +41,10 @@ export default function Home() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ script: script.trim() }),
+        body: JSON.stringify({ 
+          script: script.trim(),
+          voice: selectedVoice
+        }),
       })
 
       const data = await response.json()
@@ -87,6 +107,40 @@ export default function Home() {
         }}>
           Enter your YouTube video script and generate a professional voiceover
         </p>
+
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{
+            display: 'block',
+            fontSize: '14px',
+            fontWeight: '600',
+            marginBottom: '8px',
+            color: '#333'
+          }}>
+            Voice
+          </label>
+          <select
+            value={selectedVoice}
+            onChange={(e) => setSelectedVoice(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '12px',
+              fontSize: '16px',
+              border: '2px solid #ddd',
+              borderRadius: '8px',
+              fontFamily: 'inherit',
+              backgroundColor: 'white',
+              cursor: 'pointer',
+              boxSizing: 'border-box',
+              marginBottom: '20px'
+            }}
+          >
+            {VOICES.map((voice) => (
+              <option key={voice.value} value={voice.value}>
+                {voice.label}
+              </option>
+            ))}
+          </select>
+        </div>
 
         <div style={{ marginBottom: '20px' }}>
           <label style={{

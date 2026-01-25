@@ -13,7 +13,7 @@ const isLocal = process.env.VERCEL !== '1'
 
 export async function POST(request: NextRequest) {
   try {
-    const { script } = await request.json()
+    const { script, voice } = await request.json()
 
     if (!script || typeof script !== 'string' || script.trim().length === 0) {
       return NextResponse.json(
@@ -22,13 +22,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Use provided voice or default to en-AU-WilliamNeural
+    const selectedVoice = voice || 'en-AU-WilliamNeural'
+
     // For local development, use Python script directly
     if (isLocal) {
-      return await generateWithPython(script)
+      return await generateWithPython(script, selectedVoice)
     }
 
     // For Vercel, use Node.js edge-tts package
-    return await generateWithNodeTTS(script)
+    return await generateWithNodeTTS(script, selectedVoice)
 
   } catch (error: any) {
     console.error('Error in generate-voiceover API:', error)
@@ -39,13 +42,13 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function generateWithNodeTTS(script: string) {
+async function generateWithNodeTTS(script: string, voice: string) {
   // Use edge-tts-universal package (Node.js version of edge-tts)
   try {
     const { UniversalEdgeTTS } = await import('edge-tts-universal')
     
-    // Use en-AU-WilliamNeural voice (Australian William - matches your preference)
-    const tts = new UniversalEdgeTTS(script.trim(), 'en-AU-WilliamNeural')
+    // Use the selected voice
+    const tts = new UniversalEdgeTTS(script.trim(), voice)
     const result = await tts.synthesize()
     
     // Get audio as buffer
@@ -67,7 +70,7 @@ async function generateWithNodeTTS(script: string) {
   }
 }
 
-async function generateWithPython(script: string) {
+async function generateWithPython(script: string, voice: string) {
   const tempDir = tmpdir()
   const scriptId = `voiceover_${Date.now()}_${Math.random().toString(36).substring(7)}`
   const scriptFilePath = join(tempDir, `${scriptId}.txt`)
@@ -90,8 +93,8 @@ async function generateWithPython(script: string) {
       throw new Error('Python virtual environment not found. Please ensure venv is set up.')
     }
 
-    // Generate voiceover using the Python script
-    const command = `${venvPythonPath} ${voiceoverScriptPath} --file ${scriptFilePath} --voice en-AU-WilliamNeural --output ${outputFilePath}`
+    // Generate voiceover using the Python script with the selected voice
+    const command = `${venvPythonPath} ${voiceoverScriptPath} --file ${scriptFilePath} --voice ${voice} --output ${outputFilePath}`
 
     console.log('Executing command:', command)
 
