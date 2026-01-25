@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 // Available voices
 const VOICES = [
@@ -14,6 +14,51 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [voiceoverUrl, setVoiceoverUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [elapsedTime, setElapsedTime] = useState(0)
+  const [estimatedTime, setEstimatedTime] = useState(0)
+
+  // Calculate estimated time based on script length
+  // Roughly 1.5 seconds per 100 characters (conservative estimate)
+  const calculateEstimatedTime = (text: string): number => {
+    const charCount = text.trim().length
+    // Base time: 3 seconds + 1.5 seconds per 100 characters
+    return Math.max(3, 3 + (charCount / 100) * 1.5)
+  }
+
+  // Timer for loading state
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null
+    
+    if (loading) {
+      setElapsedTime(0)
+      const estimated = calculateEstimatedTime(script)
+      setEstimatedTime(estimated)
+      
+      interval = setInterval(() => {
+        setElapsedTime((prev) => {
+          const newTime = prev + 0.1
+          return newTime
+        })
+      }, 100)
+    } else {
+      setElapsedTime(0)
+      setEstimatedTime(0)
+    }
+
+    return () => {
+      if (interval) {
+        clearInterval(interval)
+      }
+    }
+  }, [loading, script])
+
+  // Calculate progress percentage
+  const progress = estimatedTime > 0 
+    ? Math.min(95, (elapsedTime / estimatedTime) * 100) 
+    : 0
+
+  // Calculate remaining time
+  const remainingTime = Math.max(0, estimatedTime - elapsedTime)
 
   const handleGenerateVoiceover = async () => {
     if (!script.trim()) {
@@ -179,6 +224,69 @@ export default function Home() {
         >
           {loading ? 'Generating Voiceover...' : 'Create Voiceover'}
         </button>
+
+        {loading && (
+          <div style={{
+            marginBottom: '20px',
+            padding: '20px',
+            backgroundColor: '#f9f9f9',
+            borderRadius: '8px',
+            border: '1px solid #ddd'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '10px'
+            }}>
+              <span style={{
+                fontSize: '14px',
+                fontWeight: '600',
+                color: '#333'
+              }}>
+                Generating voiceover...
+              </span>
+              <span style={{
+                fontSize: '14px',
+                color: '#666',
+                fontFamily: 'monospace'
+              }}>
+                {remainingTime > 0 
+                  ? `~${Math.ceil(remainingTime)}s remaining`
+                  : 'Almost done...'}
+              </span>
+            </div>
+            
+            {/* Progress bar */}
+            <div style={{
+              width: '100%',
+              height: '8px',
+              backgroundColor: '#e0e0e0',
+              borderRadius: '4px',
+              overflow: 'hidden',
+              marginBottom: '8px'
+            }}>
+              <div style={{
+                width: `${progress}%`,
+                height: '100%',
+                backgroundColor: '#4a90e2',
+                borderRadius: '4px',
+                transition: 'width 0.1s linear',
+                background: 'linear-gradient(90deg, #4a90e2 0%, #357abd 100%)'
+              }} />
+            </div>
+
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontSize: '12px',
+              color: '#666'
+            }}>
+              <span>Progress: {Math.round(progress)}%</span>
+              <span>Elapsed: {elapsedTime.toFixed(1)}s</span>
+            </div>
+          </div>
+        )}
 
         {error && (
           <div style={{
