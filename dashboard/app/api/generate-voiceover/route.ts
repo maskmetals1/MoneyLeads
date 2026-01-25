@@ -47,19 +47,42 @@ async function generateWithNodeTTS(script: string, voice: string) {
   try {
     console.log(`Generating voiceover with voice: ${voice}, script length: ${script.length}`)
     
-    const { UniversalEdgeTTS } = await import('edge-tts-universal')
+    // Import the package
+    const edgeTTSModule = await import('edge-tts-universal')
     
-    // Use the selected voice - UniversalEdgeTTS constructor: (text, voice)
-    const tts = new UniversalEdgeTTS(script.trim(), voice)
+    // Try UniversalEdgeTTS first (works in all environments)
+    let result: any
     
-    console.log('Calling synthesize...')
-    const result = await tts.synthesize()
+    if (edgeTTSModule.UniversalEdgeTTS) {
+      console.log('Using UniversalEdgeTTS...')
+      const tts = new edgeTTSModule.UniversalEdgeTTS(script.trim(), voice)
+      result = await tts.synthesize()
+    } else if (edgeTTSModule.EdgeTTS) {
+      console.log('Using EdgeTTS (Node.js)...')
+      const tts = new edgeTTSModule.EdgeTTS(script.trim(), voice)
+      result = await tts.synthesize()
+    } else {
+      throw new Error('No compatible TTS class found in edge-tts-universal')
+    }
     
     console.log('Synthesize completed, processing audio...')
     
-    // Get audio as buffer
-    const audioArrayBuffer = await result.audio.arrayBuffer()
-    const audioBuffer = Buffer.from(audioArrayBuffer)
+    // Get audio - handle different return types
+    let audioBuffer: Buffer
+    if (result.audio) {
+      if (result.audio instanceof ArrayBuffer) {
+        audioBuffer = Buffer.from(result.audio)
+      } else if (result.audio.arrayBuffer) {
+        const audioArrayBuffer = await result.audio.arrayBuffer()
+        audioBuffer = Buffer.from(audioArrayBuffer)
+      } else {
+        audioBuffer = Buffer.from(result.audio)
+      }
+    } else if (result instanceof ArrayBuffer) {
+      audioBuffer = Buffer.from(result)
+    } else {
+      throw new Error('Unexpected audio format from TTS')
+    }
     
     console.log(`Audio buffer size: ${audioBuffer.length} bytes`)
     
@@ -75,13 +98,23 @@ async function generateWithNodeTTS(script: string, voice: string) {
 
   } catch (error: any) {
     console.error('Edge-TTS Universal error:', error)
+    console.error('Error name:', error.name)
+    console.error('Error message:', error.message)
     console.error('Error stack:', error.stack)
     
     // Provide more detailed error message
     const errorMessage = error.message || 'Unknown error'
-    const errorDetails = error.stack ? `\nDetails: ${error.stack}` : ''
     
-    throw new Error(`Failed to generate voiceover: ${errorMessage}${errorDetails}`)
+    // Check for specific error types
+    if (error.message?.includes('timeout') || error.name === 'TimeoutError') {
+      throw new Error('Voiceover generation timed out. The script might be too long. Please try a shorter script.')
+    }
+    
+    if (error.message?.includes('network') || error.message?.includes('fetch')) {
+      throw new Error('Network error connecting to TTS service. Please check your connection and try again.')
+    }
+    
+    throw new Error(`Failed to generate voiceover: ${errorMessage}`)
   }
 }
 
