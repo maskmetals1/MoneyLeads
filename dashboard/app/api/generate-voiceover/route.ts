@@ -45,20 +45,29 @@ export async function POST(request: NextRequest) {
 async function generateWithNodeTTS(script: string, voice: string) {
   // Use edge-tts-universal package (Node.js version of edge-tts)
   try {
+    console.log(`Generating voiceover with voice: ${voice}, script length: ${script.length}`)
+    
     const { UniversalEdgeTTS } = await import('edge-tts-universal')
     
-    // Use the selected voice
+    // Use the selected voice - UniversalEdgeTTS constructor: (text, voice)
     const tts = new UniversalEdgeTTS(script.trim(), voice)
+    
+    console.log('Calling synthesize...')
     const result = await tts.synthesize()
+    
+    console.log('Synthesize completed, processing audio...')
     
     // Get audio as buffer
     const audioArrayBuffer = await result.audio.arrayBuffer()
     const audioBuffer = Buffer.from(audioArrayBuffer)
     
+    console.log(`Audio buffer size: ${audioBuffer.length} bytes`)
+    
     // Convert to base64
     const base64Audio = audioBuffer.toString('base64')
     const dataUrl = `data:audio/mpeg;base64,${base64Audio}`
 
+    console.log('Voiceover generated successfully')
     return NextResponse.json({
       url: dataUrl,
       message: 'Voiceover generated successfully'
@@ -66,7 +75,13 @@ async function generateWithNodeTTS(script: string, voice: string) {
 
   } catch (error: any) {
     console.error('Edge-TTS Universal error:', error)
-    throw new Error(`Failed to generate voiceover: ${error.message}`)
+    console.error('Error stack:', error.stack)
+    
+    // Provide more detailed error message
+    const errorMessage = error.message || 'Unknown error'
+    const errorDetails = error.stack ? `\nDetails: ${error.stack}` : ''
+    
+    throw new Error(`Failed to generate voiceover: ${errorMessage}${errorDetails}`)
   }
 }
 
