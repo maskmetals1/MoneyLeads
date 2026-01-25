@@ -1,10 +1,5 @@
 {
   "framework": "nextjs",
-  "buildCommand": "npm run build",
-  "functions": {
-    "api/generate-voiceover.py": {
-      "runtime": "python@3.9"
-    }
-  }
+  "buildCommand": "npm run build"
 }
 

@@ -27,38 +27,16 @@ export async function POST(request: NextRequest) {
       return await generateWithPython(script)
     }
 
-    // For Vercel, try to use the Python serverless function
-    // The Python function is at /api/generate-voiceover (not /app/api/generate-voiceover)
-    try {
-      const vercelUrl = process.env.VERCEL_URL 
-        ? `https://${process.env.VERCEL_URL}` 
-        : 'http://localhost:3000'
-      
-      const response = await fetch(`${vercelUrl}/api/generate-voiceover`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ script }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        return NextResponse.json(data)
-      } else {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Python function failed')
-      }
-    } catch (error: any) {
-      // Fallback: return helpful error message
-      return NextResponse.json(
-        { 
-          error: `Voiceover generation failed: ${error.message}`,
-          hint: 'For local development, ensure Python script paths are correct. For Vercel, ensure the Python serverless function is properly configured.'
-        },
-        { status: 500 }
-      )
-    }
+    // For Vercel, Python functions are not easily supported in Next.js projects
+    // Return a helpful error message suggesting alternatives
+    return NextResponse.json(
+      { 
+        error: 'Voiceover generation is only available in local development.',
+        hint: 'Python serverless functions are not supported in this Next.js setup on Vercel. To use this feature, run the app locally with `npm run dev`. For production, consider using a TTS API service like ElevenLabs, Google Cloud TTS, or Azure Cognitive Services.',
+        localOnly: true
+      },
+      { status: 501 }
+    )
 
   } catch (error: any) {
     console.error('Error in generate-voiceover API:', error)
