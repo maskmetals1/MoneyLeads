@@ -11,9 +11,24 @@ const execAsync = promisify(exec)
 // Check if we're running locally (for development) or on Vercel
 const isLocal = process.env.VERCEL !== '1'
 
+// Handle OPTIONS for CORS
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    },
+  })
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { script, voice } = await request.json()
+    console.log('Voiceover API called')
+    const body = await request.json()
+    const { script, voice } = body
+    console.log('Received request:', { scriptLength: script?.length, voice })
 
     if (!script || typeof script !== 'string' || script.trim().length === 0) {
       return NextResponse.json(
