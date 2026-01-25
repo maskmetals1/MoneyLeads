@@ -40,48 +40,31 @@ export async function POST(request: NextRequest) {
 }
 
 async function generateWithNodeTTS(script: string) {
-  // Use edge-tts CLI via npx (works on Vercel)
-  return await generateWithEdgeTTSCommand(script)
-}
-
-async function generateWithEdgeTTSCommand(script: string) {
-  const tempDir = tmpdir()
-  const scriptId = `voiceover_${Date.now()}_${Math.random().toString(36).substring(7)}`
-  const outputFilePath = join(tempDir, `${scriptId}.mp3`)
-
+  // Use Google Text-to-Speech API (free, works on Vercel)
+  // This uses the gTTS API which doesn't require authentication for basic use
   try {
-    // Escape script text for shell command
-    const escapedScript = script.trim().replace(/"/g, '\\"').replace(/\$/g, '\\$').replace(/`/g, '\\`')
-    
-    // Use edge-tts CLI - install it first if needed, then use it
-    // Note: On Vercel, we need to use npx to run edge-tts
-    const command = `npx -y edge-tts --voice "en-AU-WilliamNeural" --text "${escapedScript}" --write "${outputFilePath}"`
-
-    console.log('Running edge-tts command...')
-
-    const { stdout, stderr } = await execAsync(command, {
-      timeout: 60000, // 60 second timeout
-      maxBuffer: 10 * 1024 * 1024 // 10MB buffer
+    const response = await fetch('https://translate.google.com/translate_tts', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        ie: 'UTF-8',
+        q: script.trim(),
+        tl: 'en-AU', // Australian English (closest to en-AU-WilliamNeural)
+        client: 'tw-ob',
+        total: '1',
+        idx: '0',
+        textlen: script.trim().length.toString()
+      })
     })
 
-    if (stderr && !stderr.includes('Saved')) {
-      console.log('edge-tts stderr:', stderr)
+    if (!response.ok) {
+      throw new Error(`TTS API returned ${response.status}`)
     }
 
-    // Wait a bit for file to be written
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    if (!existsSync(outputFilePath)) {
-      throw new Error('Audio file was not created by edge-tts')
-    }
-
-    const fs = require('fs')
-    const audioBuffer = await fs.promises.readFile(outputFilePath)
-
-    // Clean up
-    await unlink(outputFilePath).catch(() => {})
-
-    const base64Audio = audioBuffer.toString('base64')
+    const audioBuffer = await response.arrayBuffer()
+    const base64Audio = Buffer.from(audioBuffer).toString('base64')
     const dataUrl = `data:audio/mpeg;base64,${base64Audio}`
 
     return NextResponse.json({
@@ -90,9 +73,9 @@ async function generateWithEdgeTTSCommand(script: string) {
     })
 
   } catch (error: any) {
-    await unlink(outputFilePath).catch(() => {})
-    console.error('Edge-TTS command error:', error)
-    throw new Error(`Failed to generate voiceover: ${error.message}`)
+    console.error('Google TTS error:', error)
+    // Fallback: return error with helpful message
+    throw new Error(`Failed to generate voiceover: ${error.message}. Please try again or use local development for better quality.`)
   }
 }
 
