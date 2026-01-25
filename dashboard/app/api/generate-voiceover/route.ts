@@ -40,31 +40,20 @@ export async function POST(request: NextRequest) {
 }
 
 async function generateWithNodeTTS(script: string) {
-  // Use Google Text-to-Speech API (free, works on Vercel)
-  // This uses the gTTS API which doesn't require authentication for basic use
+  // Use edge-tts-universal package (Node.js version of edge-tts)
   try {
-    const response = await fetch('https://translate.google.com/translate_tts', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        ie: 'UTF-8',
-        q: script.trim(),
-        tl: 'en-AU', // Australian English (closest to en-AU-WilliamNeural)
-        client: 'tw-ob',
-        total: '1',
-        idx: '0',
-        textlen: script.trim().length.toString()
-      })
-    })
-
-    if (!response.ok) {
-      throw new Error(`TTS API returned ${response.status}`)
-    }
-
-    const audioBuffer = await response.arrayBuffer()
-    const base64Audio = Buffer.from(audioBuffer).toString('base64')
+    const { UniversalEdgeTTS } = await import('edge-tts-universal')
+    
+    // Use en-AU-WilliamNeural voice (Australian William - matches your preference)
+    const tts = new UniversalEdgeTTS(script.trim(), 'en-AU-WilliamNeural')
+    const result = await tts.synthesize()
+    
+    // Get audio as buffer
+    const audioArrayBuffer = await result.audio.arrayBuffer()
+    const audioBuffer = Buffer.from(audioArrayBuffer)
+    
+    // Convert to base64
+    const base64Audio = audioBuffer.toString('base64')
     const dataUrl = `data:audio/mpeg;base64,${base64Audio}`
 
     return NextResponse.json({
@@ -73,9 +62,8 @@ async function generateWithNodeTTS(script: string) {
     })
 
   } catch (error: any) {
-    console.error('Google TTS error:', error)
-    // Fallback: return error with helpful message
-    throw new Error(`Failed to generate voiceover: ${error.message}. Please try again or use local development for better quality.`)
+    console.error('Edge-TTS Universal error:', error)
+    throw new Error(`Failed to generate voiceover: ${error.message}`)
   }
 }
 
